@@ -82,14 +82,33 @@ namespace {
         return true;
     }
 
+    // Per-channel colour blend, used to cross-fade the clip / reserve numbers on reload.
+    D3DCOLOR LerpColor(D3DCOLOR a, D3DCOLOR b, float t)
+    {
+        t = std::clamp(t, 0.0f, 1.0f);
+        auto channel = [t](unsigned int from, unsigned int to) {
+            float const value = static_cast<float>(from) + (static_cast<float>(to) - static_cast<float>(from)) * t;
+            return static_cast<unsigned int>(value + 0.5f) & 0xffu;
+        };
+        unsigned int const r = channel((a >> 16) & 0xffu, (b >> 16) & 0xffu);
+        unsigned int const g = channel((a >> 8) & 0xffu, (b >> 8) & 0xffu);
+        unsigned int const bl = channel(a & 0xffu, b & 0xffu);
+        unsigned int const al = channel((a >> 24) & 0xffu, (b >> 24) & 0xffu);
+        return (al << 24) | (r << 16) | (g << 8) | bl;
+    }
+
     // Draws one ammo number, centred inside its zone, with the optional drop shadow.
-    void DrawAmmoNumber(IDirect3DDevice9* device, TextRenderer& text, PanelSurface const& surface,
-        Rect const& zone, int value, float size_fraction, float offset_x, float offset_y, D3DCOLOR color,
-        float alpha)
+    // `min_digits` zero-pads the value (e.g. 2 -> "07"); `pop` lifts the number off
+    // the card toward the camera (see PanelFrame).
+    void DrawAmmoNumber(IDirect3DDevice9* device, TextRenderer& text, PanelFrame const& frame,
+        Rect const& zone, int value, int min_digits, float size_fraction, float offset_x, float offset_y,
+        D3DCOLOR color, float alpha, float pop)
     {
         int tex_w = 0;
         int tex_h = 0;
-        IDirect3DTexture9* texture = text.Get(device, std::to_string(value), tex_w, tex_h);
+        char buffer[16] { };
+        std::snprintf(buffer, sizeof(buffer), "%0*d", std::max(1, min_digits), value);
+        IDirect3DTexture9* texture = text.Get(device, buffer, tex_w, tex_h);
         if (!texture || tex_w <= 0 || tex_h <= 0) return;
 
         float const zone_w = zone.x1 - zone.x0;
@@ -110,22 +129,27 @@ namespace {
         float const y_top = y_center + glyph_height * 0.5f;
         float const y_bottom = y_center - glyph_height * 0.5f;
 
-        ScreenPoint const tl = surface.Map(x_l, y_top);
-        ScreenPoint const tr = surface.Map(x_r, y_top);
-        ScreenPoint const bl = surface.Map(x_l, y_bottom);
-        ScreenPoint const br = surface.Map(x_r, y_bottom);
+        ScreenPoint const tl = frame.Map(x_l, y_top, pop);
+        ScreenPoint const tr = frame.Map(x_r, y_top, pop);
+        ScreenPoint const bl = frame.Map(x_l, y_bottom, pop);
+        ScreenPoint const br = frame.Map(x_r, y_bottom, pop);
 
         device->SetTexture(0, texture);
         ScreenPoint const quad[4] = { tl, tr, bl, br };
         float const uv[4][2] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f } };
 
         if (core::PanelAmmoShadowOffset > 0.0f) {
+            // Shadow stays flat on the card (un-popped) so it does not move with the number.
             float const offset = core::PanelAmmoShadowOffset;
+            ScreenPoint const stl = frame.Map(x_l, y_top, 0.0f);
+            ScreenPoint const str = frame.Map(x_r, y_top, 0.0f);
+            ScreenPoint const sbl = frame.Map(x_l, y_bottom, 0.0f);
+            ScreenPoint const sbr = frame.Map(x_r, y_bottom, 0.0f);
             ScreenPoint const shadow_quad[4] = {
-                { tl.x + offset, tl.y + offset },
-                { tr.x + offset, tr.y + offset },
-                { bl.x + offset, bl.y + offset },
-                { br.x + offset, br.y + offset },
+                { stl.x + offset, stl.y + offset },
+                { str.x + offset, str.y + offset },
+                { sbl.x + offset, sbl.y + offset },
+                { sbr.x + offset, sbr.y + offset },
             };
             DrawTexturedQuad(device, shadow_quad, uv, ScaleColor(core::PanelAmmoShadowColor, alpha));
         }
@@ -257,8 +281,33 @@ void Vitals::Draw(IDirect3DDevice9* device, PanelSurface const& surface, float p
             sizeof(BarVertex));
 }
 
-void DrawAmmoPanel(IDirect3DDevice9* device, TextRenderer& text, PanelSurface const& surface,
-    AmmoZones const& zones, CPed* ped, float panel_alpha)
+void AmmoPanel::Update(CPed* ped, float dt)
+{
+    bool firing = false;
+    bool reloading = false;
+    if (ped) {
+        firing = ped->bFiringWeapon;
+        reloading = (ped->m_aWeapons[ped->m_nSelectedWepSlot].m_nState == WEAPONSTATE_RELOADING);
+    }
+
+    // bFiringWeapon pulses once per shot, so its rising edge is a shot event.
+    if (firing && !m_firing_prev)
+        m_fire_kick = 1.0f;
+    m_firing_prev = firing;
+
+    float const decay = std::max(0.0f, core::PanelAmmoFirePopDecay);
+    m_fire_kick *= std::exp(-decay * dt);
+    if (m_fire_kick < 0.001f)
+        m_fire_kick = 0.0f;
+
+    float const target = reloading ? 1.0f : 0.0f;
+    float const step = dt / std::max(0.01f, core::PanelAmmoReloadTransition);
+    m_reload_blend = (m_reload_blend < target) ? std::min(target, m_reload_blend + step)
+                                               : std::max(target, m_reload_blend - step);
+}
+
+void AmmoPanel::Draw(IDirect3DDevice9* device, TextRenderer& text, PanelFrame const& frame,
+    AmmoZones const& zones, CPed* ped, float panel_alpha) const
 {
     if (!ped) return;
 
@@ -267,20 +316,31 @@ void DrawAmmoPanel(IDirect3DDevice9* device, TextRenderer& text, PanelSurface co
     int const prev_slot = FindWeaponSlot(ped, current_slot, -1);
     int const next_slot = FindWeaponSlot(ped, current_slot, 1);
 
-    DrawAmmoNumber(device, text, surface, zones.clip, static_cast<int>(current_weapon.m_nAmmoInClip),
-        core::PanelAmmoClipSize, core::PanelAmmoClipOffsetX, core::PanelAmmoClipOffsetY,
-        core::PanelAmmoClipColor, panel_alpha);
-    DrawAmmoNumber(device, text, surface, zones.reserve,
-        static_cast<int>(current_weapon.m_nAmmoTotal - current_weapon.m_nAmmoInClip), core::PanelAmmoReserveSize,
-        core::PanelAmmoReserveOffsetX, core::PanelAmmoReserveOffsetY, core::PanelAmmoReserveColor, panel_alpha);
+    // During a reload the clip number falls back onto the card while the reserve
+    // number lifts off it, and the two colours swap over the transition.
+    float const blend = m_reload_blend;
+    float const clip_pop = (core::PanelAmmoClipPop + core::PanelAmmoFirePop * m_fire_kick) * (1.0f - blend);
+    float const reserve_pop = core::PanelAmmoClipPop * blend;
+    D3DCOLOR const clip_color = LerpColor(core::PanelAmmoClipColor, core::PanelAmmoReserveColor, blend);
+    D3DCOLOR const reserve_color = LerpColor(core::PanelAmmoReserveColor, core::PanelAmmoClipColor, blend);
+
+    bool const reloading = (current_weapon.m_nState == WEAPONSTATE_RELOADING);
+    D3DCOLOR const side_color = reloading ? core::PanelAmmoSideReloadColor : core::PanelAmmoSideColor;
+
+    DrawAmmoNumber(device, text, frame, zones.clip, static_cast<int>(current_weapon.m_nAmmoInClip), 2,
+        core::PanelAmmoClipSize, core::PanelAmmoClipOffsetX, core::PanelAmmoClipOffsetY, clip_color, panel_alpha,
+        clip_pop);
+    DrawAmmoNumber(device, text, frame, zones.reserve,
+        static_cast<int>(current_weapon.m_nAmmoTotal - current_weapon.m_nAmmoInClip), 2, core::PanelAmmoReserveSize,
+        core::PanelAmmoReserveOffsetX, core::PanelAmmoReserveOffsetY, reserve_color, panel_alpha, reserve_pop);
     if (prev_slot >= 0)
-        DrawAmmoNumber(device, text, surface, zones.prev, static_cast<int>(ped->m_aWeapons[prev_slot].m_nAmmoInClip),
-            core::PanelAmmoSideSize, core::PanelAmmoPrevOffsetX, core::PanelAmmoPrevOffsetY,
-            core::PanelAmmoSideColor, panel_alpha);
+        DrawAmmoNumber(device, text, frame, zones.prev, static_cast<int>(ped->m_aWeapons[prev_slot].m_nAmmoInClip), 2,
+            core::PanelAmmoSideSize, core::PanelAmmoPrevOffsetX, core::PanelAmmoPrevOffsetY, side_color, panel_alpha,
+            0.0f);
     if (next_slot >= 0)
-        DrawAmmoNumber(device, text, surface, zones.next, static_cast<int>(ped->m_aWeapons[next_slot].m_nAmmoInClip),
-            core::PanelAmmoSideSize, core::PanelAmmoNextOffsetX, core::PanelAmmoNextOffsetY,
-            core::PanelAmmoSideColor, panel_alpha);
+        DrawAmmoNumber(device, text, frame, zones.next, static_cast<int>(ped->m_aWeapons[next_slot].m_nAmmoInClip), 2,
+            core::PanelAmmoSideSize, core::PanelAmmoNextOffsetX, core::PanelAmmoNextOffsetY, side_color, panel_alpha,
+            0.0f);
 }
 
 void DrawInfoIcons(IDirect3DDevice9* device, PanelSurface const& surface, PanelRects const& panels,

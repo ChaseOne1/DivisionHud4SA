@@ -33,6 +33,12 @@ inline D3DCOLOR PanelAmmoReserveColor = D3DCOLOR_ARGB(119, 255, 255, 255);
 inline D3DCOLOR PanelAmmoSideColor = D3DCOLOR_ARGB(204, 255, 255, 255);
 inline D3DCOLOR PanelAmmoShadowColor = D3DCOLOR_ARGB(68, 0, 0, 0);
 inline float PanelAmmoShadowOffset = 2.0f;
+// Ammo panel animation.
+inline float PanelAmmoClipPop = 0.10f;
+inline float PanelAmmoFirePop = 0.06f;
+inline float PanelAmmoFirePopDecay = 6.0f;
+inline float PanelAmmoReloadTransition = 0.25f;
+inline D3DCOLOR PanelAmmoSideReloadColor = D3DCOLOR_ARGB(85, 255, 255, 255);
 
 inline float PanelVitalsOffsetY = 0.04f;
 inline float PanelVitalsGap = 0.05f;

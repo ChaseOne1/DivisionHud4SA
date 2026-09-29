@@ -48,6 +48,7 @@ private:
     render::BlurBackground m_blur;
     render::TextRenderer m_text;
     Vitals m_vitals;
+    AmmoPanel m_ammo;
     std::vector<render::BarVertex> m_bar_vertices;
     bool m_text_initialised = false;
     IDirect3DPixelShader9* m_line_shader = nullptr;

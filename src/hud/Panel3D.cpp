@@ -210,6 +210,7 @@ void Panel3D::Update()
     m_alpha += (target_alpha - m_alpha) * std::min(1.0f, dt * rate);
 
     m_vitals.Update(ped, dt);
+    m_ammo.Update(ped, dt);
 }
 
 void Panel3D::Draw()
@@ -434,7 +435,9 @@ void Panel3D::Draw()
     device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
     device->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
 
-    DrawAmmoPanel(device, m_text, surface, ammo_zones, ped, alpha);
+    PanelFrame frame;
+    frame.surface = surface;
+    m_ammo.Draw(device, m_text, frame, ammo_zones, ped, alpha);
     DrawInfoText(device, m_text, surface, panels, alpha);
 }
 

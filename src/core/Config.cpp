@@ -80,6 +80,11 @@ namespace {
                 "panel_ammo_side_color = CCFFFFFF\n"
                 "panel_ammo_shadow_color = 44000000\n"
                 "panel_ammo_shadow_offset = 2.0\n"
+                "panel_ammo_clip_pop = 0.10\n"
+                "panel_ammo_fire_pop = 0.06\n"
+                "panel_ammo_fire_pop_decay = 6.0\n"
+                "panel_ammo_reload_transition = 0.25\n"
+                "panel_ammo_side_reload_color = 55FFFFFF\n"
                 "panel_vitals_offset_y = 0.04\n"
                 "panel_vitals_gap = 0.05\n"
                 "panel_vitals_length = 1.0\n"
@@ -190,6 +195,11 @@ void Load()
     PanelAmmoSideColor = ReadHexColor("panel_ammo_side_color", PanelAmmoSideColor);
     PanelAmmoShadowColor = ReadHexColor("panel_ammo_shadow_color", PanelAmmoShadowColor);
     PanelAmmoShadowOffset = ReadFloat("panel_ammo_shadow_offset", PanelAmmoShadowOffset);
+    PanelAmmoClipPop = ReadFloat("panel_ammo_clip_pop", PanelAmmoClipPop);
+    PanelAmmoFirePop = ReadFloat("panel_ammo_fire_pop", PanelAmmoFirePop);
+    PanelAmmoFirePopDecay = ReadFloat("panel_ammo_fire_pop_decay", PanelAmmoFirePopDecay);
+    PanelAmmoReloadTransition = ReadFloat("panel_ammo_reload_transition", PanelAmmoReloadTransition);
+    PanelAmmoSideReloadColor = ReadHexColor("panel_ammo_side_reload_color", PanelAmmoSideReloadColor);
 
     PanelVitalsOffsetY = ReadFloat("panel_vitals_offset_y", PanelVitalsOffsetY);
     PanelVitalsGap = ReadFloat("panel_vitals_gap", PanelVitalsGap);
