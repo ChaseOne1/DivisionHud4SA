@@ -37,16 +37,14 @@ namespace {
         float lx = tr.x - tl.x;
         float ly = tr.y - tl.y;
         float const ll = std::sqrt(lx * lx + ly * ly);
-        if (ll < 0.001f)
-            return;
+        if (ll < 0.001f) return;
         lx /= ll;
         ly /= ll;
 
         float px = bl.x - tl.x;
         float py = bl.y - tl.y;
         float const pl = std::sqrt(px * px + py * py);
-        if (pl < 0.001f)
-            return;
+        if (pl < 0.001f) return;
         px /= pl;
         py /= pl;
 
@@ -97,8 +95,7 @@ IDirect3DPixelShader9* CompilePixelShader(IDirect3DDevice9* device, char const* 
         &code, &errors);
     if (errors)
         errors->Release();
-    if (FAILED(hr) || !code)
-        return nullptr;
+    if (FAILED(hr) || !code) return nullptr;
 
     IDirect3DPixelShader9* shader = nullptr;
     device->CreatePixelShader(reinterpret_cast<DWORD const*>(code->GetBufferPointer()), &shader);
@@ -177,8 +174,7 @@ void DrawLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint con
     float const dx = to.x - from.x;
     float const dy = to.y - from.y;
     float const length = std::sqrt(dx * dx + dy * dy);
-    if (length < 0.001f)
-        return;
+    if (length < 0.001f) return;
 
     float const half = thickness * 0.5f;
     float const padded = half + 1.0f;
@@ -200,8 +196,7 @@ void DrawEdgeLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint
     float const dx = to.x - from.x;
     float const dy = to.y - from.y;
     float const length = std::sqrt(dx * dx + dy * dy);
-    if (length < 0.001f)
-        return;
+    if (length < 0.001f) return;
 
     float nx = -dy / length;
     float ny = dx / length;

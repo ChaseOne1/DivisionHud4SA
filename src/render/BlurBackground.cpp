@@ -69,8 +69,7 @@ void BlurBackground::ReleaseTargets()
 
 bool BlurBackground::EnsureTargets(IDirect3DDevice9* device, int width, int height, D3DFORMAT format)
 {
-    if (m_screen_width == width && m_screen_height == height && m_half.texture)
-        return true;
+    if (m_screen_width == width && m_screen_height == height && m_half.texture) return true;
 
     ReleaseTargets();
 
@@ -113,8 +112,7 @@ bool BlurBackground::EnsureTargets(IDirect3DDevice9* device, int width, int heig
 
 bool BlurBackground::EnsureShader(IDirect3DDevice9* device)
 {
-    if (m_pixel_shader)
-        return true;
+    if (m_pixel_shader) return true;
 
     m_pixel_shader = CompilePixelShader(device, BLUR_SHADER_SOURCE);
     return m_pixel_shader != nullptr;
@@ -171,8 +169,7 @@ void BlurBackground::BlurPass(IDirect3DDevice9* device, Target& destination, IDi
 IDirect3DTexture9* BlurBackground::Update(IDirect3DDevice9* device)
 {
     IDirect3DSurface9* back_buffer = nullptr;
-    if (FAILED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer)) || !back_buffer)
-        return nullptr;
+    if (FAILED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer)) || !back_buffer) return nullptr;
 
     D3DSURFACE_DESC desc { };
     back_buffer->GetDesc(&desc);

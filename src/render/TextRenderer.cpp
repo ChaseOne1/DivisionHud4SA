@@ -11,8 +11,7 @@ namespace {
 
     int CALLBACK FindFaceProc(LOGFONTA const* log_font, TEXTMETRICA const*, DWORD, LPARAM param)
     {
-        if (log_font->lfFaceName[0] == '@')
-            return 1;
+        if (log_font->lfFaceName[0] == '@') return 1;
 
         FaceSearch* search = reinterpret_cast<FaceSearch*>(param);
         std::string const name = log_font->lfFaceName;
@@ -31,8 +30,7 @@ TextRenderer::~TextRenderer()
 
 void TextRenderer::Initialize(char const* font_path, int pixel_height)
 {
-    if (m_font)
-        return;
+    if (m_font) return;
 
     m_font_path = font_path ? font_path : "";
     if (!m_font_path.empty())
@@ -105,8 +103,7 @@ IDirect3DTexture9* TextRenderer::Get(IDirect3DDevice9* device, std::string const
     entry.texture = CreateTexture(device, text, entry.width, entry.height);
     width = entry.width;
     height = entry.height;
-    if (!entry.texture)
-        return nullptr;
+    if (!entry.texture) return nullptr;
 
     m_cache[text] = entry;
     return entry.texture;
@@ -117,12 +114,10 @@ IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::st
 {
     width = 0;
     height = 0;
-    if (!m_font || text.empty())
-        return nullptr;
+    if (!m_font || text.empty()) return nullptr;
 
     HDC screen = GetDC(nullptr);
-    if (!screen)
-        return nullptr;
+    if (!screen) return nullptr;
 
     HDC dc = CreateCompatibleDC(screen);
     if (!dc) {

@@ -25,8 +25,7 @@ namespace {
     {
         char buffer[64] { };
         GetPrivateProfileStringA(SECTION, key, "", buffer, sizeof(buffer), IniPath().c_str());
-        if (buffer[0] == '\0')
-            return default_value;
+        if (buffer[0] == '\0') return default_value;
         return static_cast<float>(std::atof(buffer));
     }
 
@@ -39,92 +38,90 @@ namespace {
     {
         char buffer[64] { };
         GetPrivateProfileStringA(SECTION, key, "", buffer, sizeof(buffer), IniPath().c_str());
-        if (buffer[0] == '\0')
-            return default_value;
+        if (buffer[0] == '\0') return default_value;
         return static_cast<D3DCOLOR>(std::strtoul(buffer, nullptr, 16));
     }
 
     void WriteDefaults()
     {
         std::ofstream file(IniPath().c_str());
-        if (!file)
-            return;
+        if (!file) return;
 
         file << "[DivisionHud4SA]\n"
-                "anchor_offset_right = -0.72\n"
-                "anchor_offset_up = 0.35\n"
-                "anchor_offset_forward = 0.0\n"
-                "bone_influence = 0.0\n"
-                "panel_length = 0.82\n"
-                "panel_height = 0.50\n"
-                "panel_column_length = 0.49\n"
-                "panel_skill_height = 0.47\n"
-                "panel_gap = 0.02\n"
-                "panel_ammo_split = 0.75\n"
+                "anchor_offset_right = -1.00\n"
+                "anchor_offset_up = 0.15\n"
+                "anchor_offset_forward = 0.15\n"
+                "bone_influence = 0.3\n"
+                "panel_length = 0.80\n"
+                "panel_height = 0.28\n"
+                "panel_column_length = 0.48\n"
+                "panel_skill_height = 0.49\n"
+                "panel_gap = 0.01\n"
+                "panel_ammo_split = 0.65\n"
                 "panel_ammo_clip_split = 0.60\n"
-                "panel_ammo_clip_size = 0.78\n"
-                "panel_ammo_reserve_size = 0.58\n"
-                "panel_ammo_side_size = 0.44\n"
+                "panel_ammo_clip_size = 1.1\n"
+                "panel_ammo_reserve_size = 1.1\n"
+                "panel_ammo_side_size = 0.80\n"
                 "panel_ammo_clip_x = 0.0\n"
                 "panel_ammo_clip_y = 0.0\n"
                 "panel_ammo_reserve_x = 0.0\n"
-                "panel_ammo_reserve_y = 0.0\n"
+                "panel_ammo_reserve_y = 0.05\n"
                 "panel_ammo_prev_x = 0.0\n"
                 "panel_ammo_prev_y = 0.0\n"
                 "panel_ammo_next_x = 0.0\n"
                 "panel_ammo_next_y = 0.0\n"
                 "panel_ammo_clip_color = FFFFFFFF\n"
-                "panel_ammo_reserve_color = FF6E6E6E\n"
-                "panel_ammo_side_color = FF9C9C9C\n"
-                "panel_ammo_shadow_color = C0000000\n"
+                "panel_ammo_reserve_color = 77FFFFFF\n"
+                "panel_ammo_side_color = CCFFFFFF\n"
+                "panel_ammo_shadow_color = 44000000\n"
                 "panel_ammo_shadow_offset = 2.0\n"
                 "panel_vitals_offset_y = 0.04\n"
-                "panel_vitals_gap = 0.03\n"
+                "panel_vitals_gap = 0.05\n"
                 "panel_vitals_length = 1.0\n"
                 "panel_vitals_thickness_health = 0.06\n"
-                "panel_vitals_thickness_armor = 0.10\n"
+                "panel_vitals_thickness_armor = 0.15\n"
                 "panel_vitals_thickness_stamina = 0.05\n"
                 "panel_vitals_health_color = FFE8871A\n"
-                "panel_vitals_health_track_color = C0181818\n"
+                "panel_vitals_health_track_color = 44000000\n"
                 "panel_vitals_armor_color = FFFFFFFF\n"
                 "panel_vitals_stamina_color = FFFFFFFF\n"
                 "panel_vitals_breath_color = FF2E9BFF\n"
-                "panel_vitals_breath_hold = 0.5\n"
+                "panel_vitals_breath_hold = 1.0\n"
                 "panel_vitals_cursor_color = FFFFFFFF\n"
                 "panel_vitals_cursor_width = 0.004\n"
                 "panel_vitals_cursor_scale = 1.6\n"
-                "panel_vitals_armor_unit = 1.0\n"
-                "panel_vitals_armor_gap = 0.0015\n"
-                "panel_vitals_stamina_fade_in = 0.40\n"
-                "panel_vitals_stamina_fade_out = 1.00\n"
-                "panel_vitals_stamina_hold = 2.0\n"
-                "panel_hud_text_size = 0.36\n"
-                "panel_hud_icon_size = 0.42\n"
+                "panel_vitals_armor_unit = 3.0\n"
+                "panel_vitals_armor_gap = 0.008\n"
+                "panel_vitals_stamina_fade_in = 0.09\n"
+                "panel_vitals_stamina_fade_out = 0.09\n"
+                "panel_vitals_stamina_hold = 1.0\n"
+                "panel_hud_text_size = 0.6\n"
+                "panel_hud_icon_size = 0.5\n"
                 "panel_hud_text_color = FFFFFFFF\n"
                 "panel_hud_icon_color = FFFFFFFF\n"
-                "panel_money_digits = 8\n"
-                "panel_skill_icon_x = 0.12\n"
-                "panel_skill_value_x = 0.34\n"
-                "panel_clock_icon_x = 0.08\n"
-                "panel_clock_value_x = 0.20\n"
+                "panel_money_digits = 10\n"
+                "panel_skill_icon_x = 0.05\n"
+                "panel_skill_value_x = 0.17\n"
+                "panel_clock_icon_x = 0.1\n"
+                "panel_clock_value_x = 0.22\n"
                 "panel_wanted_icon_x = 0.68\n"
-                "panel_wanted_value_x = 0.84\n"
-                "panel_line_width = 2.0\n"
-                "panel_line_alpha = 1.0\n"
-                "panel_line_alpha_bottom = 1.0\n"
-                "panel_ads_duration = 0.006\n"
-                "panel_ads_width = 0.26\n"
+                "panel_wanted_value_x = 0.82\n"
+                "panel_line_width = 1.0\n"
+                "panel_line_alpha = 0.8\n"
+                "panel_line_alpha_bottom = 0.2\n"
+                "panel_ads_duration = 0.11\n"
+                "panel_ads_width = 0.17\n"
                 "panel_ads_center_x = 0.68\n"
-                "panel_ads_center_y = 0.64\n"
-                "panel_ads_yaw = -0.20\n"
-                "panel_ads_pitch = 0.18\n"
-                "base_yaw_offset = -0.25\n"
+                "panel_ads_center_y = 0.70\n"
+                "panel_ads_yaw = -0.05\n"
+                "panel_ads_pitch = 0.05\n"
+                "base_yaw_offset = -0.40\n"
                 "base_pitch = -0.03\n"
-                "pitch_deadzone = 0.85\n"
+                "pitch_deadzone = 0.8\n"
                 "pitch_smooth = 450.0\n"
                 "yaw_smooth = 450.0\n"
                 "side_smooth = 400.0\n"
-                "spring_omega = 218.0\n"
+                "spring_omega = 182.0\n"
                 "anchor_smooth = 400.0\n"
                 "bob_amplitude = 0.0\n"
                 "bob_omega = 110.0\n"
@@ -137,7 +134,7 @@ namespace {
                 "blur_spacing = 2.0\n"
                 "blur_iterations = 2\n"
                 "blur_saturation = 1.0\n"
-                "back_tint = CDFFFFFF\n";
+                "back_tint = FFFFFFFF\n";
     }
 }
 
@@ -247,13 +244,11 @@ void Load()
 
 void Update()
 {
-    if ((g_frame_counter++ % 30) != 0)
-        return;
+    if ((g_frame_counter++ % 30) != 0) return;
 
     std::error_code ec;
     auto const last_write = std::filesystem::last_write_time(IniPath(), ec);
-    if (ec)
-        return;
+    if (ec) return;
 
     if (last_write != g_last_write) {
         g_last_write = last_write;

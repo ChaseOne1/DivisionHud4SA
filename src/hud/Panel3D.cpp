@@ -41,8 +41,7 @@ namespace {
     {
         RwV3d projected { };
         float w = 0.0f, h = 0.0f;
-        if (!CSprite::CalcScreenCoors(world, &projected, &w, &h, false, false))
-            return false;
+        if (!CSprite::CalcScreenCoors(world, &projected, &w, &h, false, false)) return false;
         out.x = projected.x;
         out.y = projected.y;
         return true;
@@ -73,12 +72,10 @@ namespace {
 
     bool IsPlayerAiming(CPed* ped)
     {
-        if (ped->bIsAimingGun)
-            return true;
+        if (ped->bIsAimingGun) return true;
 
         ePedState const state = ped->m_ePedState;
-        if (state == PEDSTATE_AIMGUN || state == PEDSTATE_SNIPER_MODE || state == PEDSTATE_ROCKETLAUNCHER_MODE)
-            return true;
+        if (state == PEDSTATE_AIMGUN || state == PEDSTATE_SNIPER_MODE || state == PEDSTATE_ROCKETLAUNCHER_MODE) return true;
 
         unsigned char const active_cam = TheCamera.m_nActiveCam;
         return IsAimMode(TheCamera.m_aCams[active_cam < 3 ? active_cam : 0].m_nMode);
@@ -217,16 +214,13 @@ void Panel3D::Update()
 
 void Panel3D::Draw()
 {
-    if (m_alpha < 0.01f || !m_initialised)
-        return;
+    if (m_alpha < 0.01f || !m_initialised) return;
 
     CPed* ped = FindPlayerPed(0);
-    if (!ped || FindPlayerVehicle(0, false))
-        return;
+    if (!ped || FindPlayerVehicle(0, false)) return;
 
     IDirect3DDevice9* device = static_cast<IDirect3DDevice9*>(RwD3D9GetCurrentD3DDevice());
-    if (!device)
-        return;
+    if (!device) return;
 
     float alpha = m_alpha;
     {
@@ -238,15 +232,13 @@ void Panel3D::Draw()
         else if (distance < core::FadeNearFull)
             near_fade = (distance - core::FadeNearDist) / (core::FadeNearFull - core::FadeNearDist);
         near_fade += (1.0f - near_fade) * m_ads_blend;
-        if (near_fade < 0.01f)
-            return;
+        if (near_fade < 0.01f) return;
         alpha *= near_fade;
     }
 
     int const screen_width = RsGlobal.maximumWidth;
     int const screen_height = RsGlobal.maximumHeight;
-    if (screen_width <= 0 || screen_height <= 0)
-        return;
+    if (screen_width <= 0 || screen_height <= 0) return;
 
     float const yaw = m_yaw + PI_F + core::BaseYawOffset;
     float const pitch = m_pitch;
@@ -337,8 +329,7 @@ void Panel3D::Draw()
     DeviceStateGuard guard(device);
 
     IDirect3DTexture9* blurred = m_blur.Update(device);
-    if (!blurred)
-        return;
+    if (!blurred) return;
 
     device->SetVertexShader(nullptr);
     device->SetPixelShader(nullptr);

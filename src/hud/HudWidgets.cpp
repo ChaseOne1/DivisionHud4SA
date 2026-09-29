@@ -35,10 +35,8 @@ namespace {
     {
         float const fade = (alpha < target) ? std::max(MIN_FADE_DURATION, fade_in) : std::max(MIN_FADE_DURATION, fade_out);
         float const step = std::min(MAX_FADE_STEP, dt / fade);
-        if (alpha < target)
-            return std::min(1.0f, alpha + step);
-        if (alpha > target)
-            return std::max(0.0f, alpha - step);
+        if (alpha < target) return std::min(1.0f, alpha + step);
+        if (alpha > target) return std::max(0.0f, alpha - step);
         return alpha;
     }
 
@@ -58,8 +56,7 @@ namespace {
         int const count = static_cast<int>(std::size(ped->m_aWeapons));
         for (int i = 1; i < count; ++i) {
             int const slot = ((from + step * i) % count + count) % count;
-            if (IsOccupiedSlot(ped, slot))
-                return slot;
+            if (IsOccupiedSlot(ped, slot)) return slot;
         }
         return -1;
     }
@@ -70,8 +67,7 @@ namespace {
         int tex_w = 0;
         int tex_h = 0;
         IDirect3DTexture9* texture = text.Get(device, str, tex_w, tex_h);
-        if (!texture || tex_w <= 0 || tex_h <= 0)
-            return false;
+        if (!texture || tex_w <= 0 || tex_h <= 0) return false;
 
         float const glyph_width = glyph_height * (static_cast<float>(tex_w) / static_cast<float>(tex_h)) * UnitAspect();
         ScreenPoint const tl = surface.Map(x_left, y_center + glyph_height * 0.5f);
@@ -94,13 +90,11 @@ namespace {
         int tex_w = 0;
         int tex_h = 0;
         IDirect3DTexture9* texture = text.Get(device, std::to_string(value), tex_w, tex_h);
-        if (!texture || tex_w <= 0 || tex_h <= 0)
-            return;
+        if (!texture || tex_w <= 0 || tex_h <= 0) return;
 
         float const zone_w = zone.x1 - zone.x0;
         float const zone_h = zone.y1 - zone.y0;
-        if (zone_w <= 0.0f || zone_h <= 0.0f)
-            return;
+        if (zone_w <= 0.0f || zone_h <= 0.0f) return;
 
         float const texture_aspect = (static_cast<float>(tex_w) / static_cast<float>(tex_h)) * UnitAspect();
         float glyph_height = zone_h * size_fraction;
@@ -172,8 +166,7 @@ void Vitals::Draw(IDirect3DDevice9* device, PanelSurface const& surface, float p
     std::vector<BarVertex>& vertices) const
 {
     CPed* ped = FindPlayerPed(0);
-    if (!ped)
-        return;
+    if (!ped) return;
 
     CPlayerInfo& info = CWorld::Players[CWorld::PlayerInFocus];
     float const max_health = static_cast<float>(info.m_nMaxHealth);
@@ -215,8 +208,7 @@ void Vitals::Draw(IDirect3DDevice9* device, PanelSurface const& surface, float p
     vertices.reserve(640);
 
     auto add_bar = [&](float y_bottom, float y_top, float frac, D3DCOLOR color) {
-        if (frac <= 0.0f)
-            return;
+        if (frac <= 0.0f) return;
         float const right = x0 + length * std::clamp(frac, 0.0f, 1.0f);
         AppendAARect(vertices, surface, x0, y_bottom, right, y_top, color);
     };
@@ -242,8 +234,7 @@ void Vitals::Draw(IDirect3DDevice9* device, PanelSurface const& surface, float p
         for (int i = 0; i < armor_filled; ++i) {
             float const seg_x0 = x0 + segment_width * i + segment_gap * 0.5f;
             float const seg_x1 = x0 + segment_width * (i + 1) - segment_gap * 0.5f;
-            if (seg_x1 <= seg_x0)
-                continue;
+            if (seg_x1 <= seg_x0) continue;
             AppendAARect(vertices, surface, seg_x0, armor_bottom, seg_x1, armor_top, armor_color);
         }
     }
@@ -269,8 +260,7 @@ void Vitals::Draw(IDirect3DDevice9* device, PanelSurface const& surface, float p
 void DrawAmmoPanel(IDirect3DDevice9* device, TextRenderer& text, PanelSurface const& surface,
     AmmoZones const& zones, CPed* ped, float panel_alpha)
 {
-    if (!ped)
-        return;
+    if (!ped) return;
 
     int const current_slot = ped->m_nSelectedWepSlot;
     CWeapon const& current_weapon = ped->m_aWeapons[current_slot];
