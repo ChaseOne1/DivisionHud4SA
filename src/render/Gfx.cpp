@@ -272,7 +272,7 @@ void AppendStar(std::vector<BarVertex>& out, PanelSurface const& surface, float 
     constexpr int POINTS = 5;
     ScreenPoint outer[POINTS], inner[POINTS];
     for (int i = 0; i < POINTS; ++i) {
-        float const ao = -PI_F * 0.5f + i * 2.0f * PI_F / POINTS;
+        float const ao = PI_F * 0.5f + i * 2.0f * PI_F / POINTS;
         float const ai = ao + PI_F / POINTS;
         outer[i] = surface.Map(cx + std::cos(ao) * rx, cy + std::sin(ao) * ry);
         inner[i] = surface.Map(cx + std::cos(ai) * rx * 0.4f, cy + std::sin(ai) * ry * 0.4f);

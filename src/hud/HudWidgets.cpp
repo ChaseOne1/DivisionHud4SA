@@ -302,9 +302,9 @@ void DrawInfoIcons(IDirect3DDevice9* device, PanelSurface const& surface, PanelR
         float const cy = (r.y0 + r.y1) * 0.5f;
         float const ry = icon_radius(r);
         float const rx = ry * unit_aspect;
-        AppendRing(vertices, surface, cx, cy, rx, ry, 0.76f, color);
-        AppendSolidRect(vertices, surface, cx - rx * 0.05f, cy, cx + rx * 0.05f, cy + ry * 0.52f, color);
-        AppendSolidRect(vertices, surface, cx, cy - ry * 0.05f, cx + rx * 0.44f, cy + ry * 0.05f, color);
+        AppendRing(vertices, surface, cx, cy, rx, ry, 0.87f, color);
+        AppendSolidRect(vertices, surface, cx - rx * 0.08f, cy, cx + rx * 0.08f, cy + ry * 0.52f, color);
+        AppendSolidRect(vertices, surface, cx, cy - ry * 0.055f, cx + rx * 0.70f, cy + ry * 0.055f, color);
     }
 
     {
