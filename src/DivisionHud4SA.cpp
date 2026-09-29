@@ -4,9 +4,8 @@
 
 using namespace plugin;
 
-namespace
-{
-    division::Panel3D gPanel;
+namespace {
+division::Panel3D gPanel;
 }
 
 class DivisionHud4SA

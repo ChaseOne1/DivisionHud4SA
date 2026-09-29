@@ -3,20 +3,19 @@
 #include <cmath>
 #include "CVector.h"
 
-namespace division
+namespace division {
+inline void Damp(CVector& value, CVector& velocity, CVector const& target, float omega, float dt)
 {
-    inline void Damp(CVector &value, CVector &velocity, CVector const &target, float omega, float dt)
-    {
-        if (dt <= 0.0f)
-            return;
-        if (dt > 0.1f)
-            dt = 0.1f;
+    if (dt <= 0.0f)
+        return;
+    if (dt > 0.1f)
+        dt = 0.1f;
 
-        float const decay = std::exp(-omega * dt);
-        CVector const offset = value - target;
-        CVector const step = (velocity + offset * omega) * dt;
+    float const decay = std::exp(-omega * dt);
+    CVector const offset = value - target;
+    CVector const step = (velocity + offset * omega) * dt;
 
-        value = target + (offset + step) * decay;
-        velocity = (velocity - step * omega) * decay;
-    }
+    value = target + (offset + step) * decay;
+    velocity = (velocity - step * omega) * decay;
+}
 }
