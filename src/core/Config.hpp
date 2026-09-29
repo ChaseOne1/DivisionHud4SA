@@ -2,7 +2,7 @@
 
 #include <d3d9.h>
 
-namespace Config {
+namespace division::core {
 inline float AnchorOffsetRight = -0.72f;
 inline float AnchorOffsetUp = 0.35f;
 inline float AnchorOffsetForward = 0.0f;

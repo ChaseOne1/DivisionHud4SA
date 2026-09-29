@@ -4,13 +4,13 @@
 #include <map>
 #include <string>
 
-namespace division {
+namespace division::render {
 class TextRenderer
 {
 public:
     ~TextRenderer();
 
-    void Initialize(char const* fontPath, int pixelHeight);
+    void Initialize(char const* font_path, int pixel_height);
     void Shutdown();
     void OnDeviceLost();
 
@@ -27,7 +27,7 @@ private:
     IDirect3DTexture9* CreateTexture(IDirect3DDevice9* device, std::string const& text, int& width, int& height);
 
     HFONT m_font = nullptr;
-    std::string m_fontPath;
+    std::string m_font_path;
     std::map<std::string, Entry> m_cache;
 };
 }

@@ -3,7 +3,7 @@
 #include <cmath>
 #include "CVector.h"
 
-namespace division {
+namespace division::core {
 inline void Damp(CVector& value, CVector& velocity, CVector const& target, float omega, float dt)
 {
     if (dt <= 0.0f)

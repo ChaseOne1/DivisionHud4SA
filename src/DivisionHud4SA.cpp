@@ -1,11 +1,11 @@
 #include "plugin.h"
-#include "Config.h"
-#include "Panel3D.h"
+#include "core/Config.hpp"
+#include "hud/Panel3D.hpp"
 
 using namespace plugin;
 
 namespace {
-division::Panel3D gPanel;
+division::hud::Panel3D g_panel;
 }
 
 class DivisionHud4SA
@@ -13,12 +13,12 @@ class DivisionHud4SA
 public:
     DivisionHud4SA()
     {
-        Config::Load();
+        division::core::Load();
 
         Events::drawingEvent += [] {
-            gPanel.Update();
-            gPanel.Draw();
+            g_panel.Update();
+            g_panel.Draw();
         };
-        Events::d3dLostEvent += [] { gPanel.OnDeviceLost(); };
+        Events::d3dLostEvent += [] { g_panel.OnDeviceLost(); };
     }
-} divisionHud4SA;
+} division_hud_4sa;

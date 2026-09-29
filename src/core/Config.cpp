@@ -1,13 +1,13 @@
-#include "Config.h"
+#include "core/Config.hpp"
 #include "plugin.h"
 
 #include <cstdlib>
 #include <fstream>
 #include <string>
 
-namespace Config {
+namespace division::core {
 namespace {
-    char const kSection[] = "DivisionHud4SA";
+    char const SECTION[] = "DivisionHud4SA";
 
     std::string g_path;
     ULONGLONG g_lastWrite = 0;
@@ -20,26 +20,26 @@ namespace {
         return g_path;
     }
 
-    float ReadFloat(char const* key, float defaultValue)
+    float ReadFloat(char const* key, float default_value)
     {
         char buffer[64] { };
-        GetPrivateProfileStringA(kSection, key, "", buffer, sizeof(buffer), IniPath().c_str());
+        GetPrivateProfileStringA(SECTION, key, "", buffer, sizeof(buffer), IniPath().c_str());
         if (buffer[0] == '\0')
-            return defaultValue;
+            return default_value;
         return static_cast<float>(std::atof(buffer));
     }
 
-    int ReadInt(char const* key, int defaultValue)
+    int ReadInt(char const* key, int default_value)
     {
-        return static_cast<int>(GetPrivateProfileIntA(kSection, key, defaultValue, IniPath().c_str()));
+        return static_cast<int>(GetPrivateProfileIntA(SECTION, key, default_value, IniPath().c_str()));
     }
 
-    D3DCOLOR ReadHexColor(char const* key, D3DCOLOR defaultValue)
+    D3DCOLOR ReadHexColor(char const* key, D3DCOLOR default_value)
     {
         char buffer[64] { };
-        GetPrivateProfileStringA(kSection, key, "", buffer, sizeof(buffer), IniPath().c_str());
+        GetPrivateProfileStringA(SECTION, key, "", buffer, sizeof(buffer), IniPath().c_str());
         if (buffer[0] == '\0')
-            return defaultValue;
+            return default_value;
         return static_cast<D3DCOLOR>(std::strtoul(buffer, nullptr, 16));
     }
 
@@ -253,10 +253,10 @@ void Update()
     if (!GetFileAttributesExA(IniPath().c_str(), GetFileExInfoStandard, &attributes))
         return;
 
-    ULONGLONG const lastWrite = (static_cast<ULONGLONG>(attributes.ftLastWriteTime.dwHighDateTime) << 32) | static_cast<ULONGLONG>(attributes.ftLastWriteTime.dwLowDateTime);
+    ULONGLONG const last_write = (static_cast<ULONGLONG>(attributes.ftLastWriteTime.dwHighDateTime) << 32) | static_cast<ULONGLONG>(attributes.ftLastWriteTime.dwLowDateTime);
 
-    if (lastWrite != g_lastWrite) {
-        g_lastWrite = lastWrite;
+    if (last_write != g_lastWrite) {
+        g_lastWrite = last_write;
         Load();
     }
 }

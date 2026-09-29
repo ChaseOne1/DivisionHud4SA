@@ -2,7 +2,7 @@
 
 #include <d3d9.h>
 
-namespace division {
+namespace division::render {
 class BlurBackground
 {
 public:
@@ -22,7 +22,7 @@ private:
 
     bool EnsureTargets(IDirect3DDevice9* device, int width, int height, D3DFORMAT format);
     bool EnsureShader(IDirect3DDevice9* device);
-    void BlurPass(IDirect3DDevice9* device, Target& destination, IDirect3DTexture9* source, float stepX, float stepY);
+    void BlurPass(IDirect3DDevice9* device, Target& destination, IDirect3DTexture9* source, float step_x, float step_y);
     void ReleaseTarget(Target& target);
     void ReleaseTargets();
 
@@ -31,8 +31,8 @@ private:
     Target m_temp;
     Target m_result;
 
-    IDirect3DPixelShader9* m_pixelShader = nullptr;
-    int m_screenWidth = 0;
-    int m_screenHeight = 0;
+    IDirect3DPixelShader9* m_pixel_shader = nullptr;
+    int m_screen_width = 0;
+    int m_screen_height = 0;
 };
 }

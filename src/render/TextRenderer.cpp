@@ -1,22 +1,21 @@
-#include "TextRenderer.h"
+#include "render/TextRenderer.hpp"
 
 #include <cstring>
-#include <vector>
 
-namespace division {
+namespace division::render {
 namespace {
     struct FaceSearch
     {
         std::string name;
     };
 
-    int CALLBACK FindFaceProc(LOGFONTA const* logFont, TEXTMETRICA const*, DWORD, LPARAM param)
+    int CALLBACK FindFaceProc(LOGFONTA const* log_font, TEXTMETRICA const*, DWORD, LPARAM param)
     {
-        if (logFont->lfFaceName[0] == '@')
+        if (log_font->lfFaceName[0] == '@')
             return 1;
 
         FaceSearch* search = reinterpret_cast<FaceSearch*>(param);
-        std::string const name = logFont->lfFaceName;
+        std::string const name = log_font->lfFaceName;
         if (name.find("Borda") != std::string::npos) {
             search->name = name;
             return 0;
@@ -30,30 +29,30 @@ TextRenderer::~TextRenderer()
     Shutdown();
 }
 
-void TextRenderer::Initialize(char const* fontPath, int pixelHeight)
+void TextRenderer::Initialize(char const* font_path, int pixel_height)
 {
     if (m_font)
         return;
 
-    m_fontPath = fontPath ? fontPath : "";
-    if (!m_fontPath.empty())
-        AddFontResourceExA(m_fontPath.c_str(), FR_PRIVATE, nullptr);
+    m_font_path = font_path ? font_path : "";
+    if (!m_font_path.empty())
+        AddFontResourceExA(m_font_path.c_str(), FR_PRIVATE, nullptr);
 
-    std::string faceName = "Borda Medium";
+    std::string face_name = "Borda Medium";
     HDC screen = GetDC(nullptr);
     if (screen) {
         FaceSearch search;
-        LOGFONTA logFont { };
-        logFont.lfCharSet = DEFAULT_CHARSET;
-        EnumFontFamiliesExA(screen, &logFont, FindFaceProc, reinterpret_cast<LPARAM>(&search), 0);
+        LOGFONTA log_font { };
+        log_font.lfCharSet = DEFAULT_CHARSET;
+        EnumFontFamiliesExA(screen, &log_font, FindFaceProc, reinterpret_cast<LPARAM>(&search), 0);
         if (!search.name.empty())
-            faceName = search.name;
+            face_name = search.name;
         ReleaseDC(nullptr, screen);
     }
 
-    m_font = CreateFontA(-pixelHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+    m_font = CreateFontA(-pixel_height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE, faceName.c_str());
+        DEFAULT_PITCH | FF_DONTCARE, face_name.c_str());
 }
 
 void TextRenderer::Shutdown()
@@ -69,9 +68,9 @@ void TextRenderer::Shutdown()
         m_font = nullptr;
     }
 
-    if (!m_fontPath.empty()) {
-        RemoveFontResourceExA(m_fontPath.c_str(), FR_PRIVATE, nullptr);
-        m_fontPath.clear();
+    if (!m_font_path.empty()) {
+        RemoveFontResourceExA(m_font_path.c_str(), FR_PRIVATE, nullptr);
+        m_font_path.clear();
     }
 }
 
@@ -93,8 +92,8 @@ IDirect3DTexture9* TextRenderer::Get(IDirect3DDevice9* device, std::string const
         return it->second.texture;
     }
 
-    constexpr size_t kMaxCache = 256;
-    if (m_cache.size() >= kMaxCache) {
+    constexpr size_t MAX_CACHE = 256;
+    if (m_cache.size() >= MAX_CACHE) {
         for (auto& entry : m_cache) {
             if (entry.second.texture)
                 entry.second.texture->Release();
@@ -131,7 +130,7 @@ IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::st
         return nullptr;
     }
 
-    HGDIOBJ const oldFont = SelectObject(dc, m_font);
+    HGDIOBJ const old_font = SelectObject(dc, m_font);
 
     SIZE extent { };
     GetTextExtentPoint32A(dc, text.c_str(), static_cast<int>(text.size()), &extent);
@@ -149,13 +148,13 @@ IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::st
     void* bits = nullptr;
     HBITMAP const dib = CreateDIBSection(dc, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
     if (!dib || !bits) {
-        SelectObject(dc, oldFont);
+        SelectObject(dc, old_font);
         DeleteDC(dc);
         ReleaseDC(nullptr, screen);
         return nullptr;
     }
 
-    HGDIOBJ const oldBitmap = SelectObject(dc, dib);
+    HGDIOBJ const old_bitmap = SelectObject(dc, dib);
     std::memset(bits, 0, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
 
     SetBkMode(dc, TRANSPARENT);
@@ -163,28 +162,26 @@ IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::st
     SetTextAlign(dc, TA_TOP | TA_LEFT);
     TextOutA(dc, 0, 0, text.c_str(), static_cast<int>(text.size()));
 
-    std::vector<unsigned int> pixels(static_cast<size_t>(width) * static_cast<size_t>(height));
-    unsigned int const* source = static_cast<unsigned int const*>(bits);
-    for (size_t i = 0; i < pixels.size(); ++i) {
-        unsigned int const coverage = source[i] & 0xFFu;
-        pixels[i] = (coverage << 24) | 0x00FFFFFFu;
-    }
-
     IDirect3DTexture9* texture = nullptr;
     if (SUCCEEDED(device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr))) {
         D3DLOCKED_RECT locked { };
         if (SUCCEEDED(texture->LockRect(0, &locked, nullptr, 0))) {
-            for (int y = 0; y < height; ++y)
-                std::memcpy(static_cast<unsigned char*>(locked.pBits) + static_cast<size_t>(y) * locked.Pitch,
-                    &pixels[static_cast<size_t>(y) * static_cast<size_t>(width)],
-                    static_cast<size_t>(width) * 4);
+            unsigned int const* source = static_cast<unsigned int const*>(bits);
+            for (int y = 0; y < height; ++y) {
+                unsigned int* dest = reinterpret_cast<unsigned int*>(
+                    static_cast<unsigned char*>(locked.pBits) + static_cast<size_t>(y) * locked.Pitch);
+                for (int x = 0; x < width; ++x) {
+                    unsigned int const coverage = source[static_cast<size_t>(y) * width + x] & 0xffu;
+                    dest[x] = (coverage << 24) | 0x00ffffffu;
+                }
+            }
             texture->UnlockRect(0);
         }
     }
 
-    SelectObject(dc, oldBitmap);
+    SelectObject(dc, old_bitmap);
     DeleteObject(dib);
-    SelectObject(dc, oldFont);
+    SelectObject(dc, old_font);
     DeleteDC(dc);
     ReleaseDC(nullptr, screen);
     return texture;

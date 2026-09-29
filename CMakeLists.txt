@@ -12,10 +12,12 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 add_library(DivisionHud4SA SHARED
     src/DivisionHud4SA.cpp
-    src/Config.cpp
-    src/Panel3D.cpp
-    src/BlurBackground.cpp
-    src/TextRenderer.cpp
+    src/core/Config.cpp
+    src/hud/Panel3D.cpp
+    src/hud/HudWidgets.cpp
+    src/render/Gfx.cpp
+    src/render/BlurBackground.cpp
+    src/render/TextRenderer.cpp
 )
 
 set_target_properties(DivisionHud4SA PROPERTIES
@@ -25,6 +27,7 @@ set_target_properties(DivisionHud4SA PROPERTIES
 )
 
 target_include_directories(DivisionHud4SA PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     $ENV{PLUGIN_SDK_DIR}\\plugin_sa
     $ENV{PLUGIN_SDK_DIR}\\plugin_sa\\game_sa
     $ENV{PLUGIN_SDK_DIR}\\plugin_sa\\game_sa\\enums
