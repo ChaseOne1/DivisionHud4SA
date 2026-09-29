@@ -2,8 +2,6 @@
 #include "plugin.h"
 
 #include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <string>
 
 namespace division::core {
@@ -11,7 +9,7 @@ namespace {
     char const SECTION[] = "DivisionHud4SA";
 
     std::string g_path;
-    std::filesystem::file_time_type g_last_write { };
+    unsigned long long g_last_write = 0;
     unsigned int g_frame_counter = 0;
 
     std::string const& IniPath()
@@ -19,6 +17,15 @@ namespace {
         if (g_path.empty())
             g_path = PLUGIN_PATH("DivisionHud4SA.ini");
         return g_path;
+    }
+
+    unsigned long long LastWriteTime(char const* path)
+    {
+        WIN32_FILE_ATTRIBUTE_DATA data { };
+        if (!GetFileAttributesExA(path, GetFileExInfoStandard, &data))
+            return 0;
+        return (static_cast<unsigned long long>(data.ftLastWriteTime.dwHighDateTime) << 32)
+            | static_cast<unsigned long long>(data.ftLastWriteTime.dwLowDateTime);
     }
 
     float ReadFloat(char const* key, float default_value)
@@ -44,10 +51,8 @@ namespace {
 
     void WriteDefaults()
     {
-        std::ofstream file(IniPath().c_str());
-        if (!file) return;
-
-        file << "[DivisionHud4SA]\n"
+        static constexpr char text[] =
+            "[DivisionHud4SA]\n"
                 "anchor_offset_right = -1.00\n"
                 "anchor_offset_up = 0.15\n"
                 "anchor_offset_forward = 0.15\n"
@@ -135,16 +140,28 @@ namespace {
                 "blur_iterations = 2\n"
                 "blur_saturation = 1.0\n"
                 "back_tint = FFFFFFFF\n";
+
+        HANDLE const file = CreateFileA(IniPath().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE) return;
+
+        char buffer[4096] { };
+        DWORD count = 0;
+        for (DWORD i = 0; text[i] != '\0' && count + 1 < sizeof(buffer); ++i) {
+            if (text[i] == '\n') buffer[count++] = '\r';
+            buffer[count++] = text[i];
+        }
+
+        DWORD written = 0;
+        WriteFile(file, buffer, count, &written, nullptr);
+        CloseHandle(file);
     }
 }
 
 void Load()
 {
-    {
-        std::error_code ec;
-        if (!std::filesystem::exists(IniPath(), ec))
-            WriteDefaults();
-    }
+    if (GetFileAttributesA(IniPath().c_str()) == INVALID_FILE_ATTRIBUTES)
+        WriteDefaults();
 
     AnchorOffsetRight = ReadFloat("anchor_offset_right", AnchorOffsetRight);
     AnchorOffsetUp = ReadFloat("anchor_offset_up", AnchorOffsetUp);
@@ -246,9 +263,8 @@ void Update()
 {
     if ((g_frame_counter++ % 30) != 0) return;
 
-    std::error_code ec;
-    auto const last_write = std::filesystem::last_write_time(IniPath(), ec);
-    if (ec) return;
+    unsigned long long const last_write = LastWriteTime(IniPath().c_str());
+    if (last_write == 0) return;
 
     if (last_write != g_last_write) {
         g_last_write = last_write;

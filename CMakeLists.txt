@@ -40,7 +40,7 @@ target_include_directories(DivisionHud4SA PRIVATE
     $ENV{PLUGIN_SDK_DIR}\\stb
 )
 
-target_compile_options(DivisionHud4SA PRIVATE /MP /permissive-)
+target_compile_options(DivisionHud4SA PRIVATE /MP /permissive- /GR- /GS-)
 target_compile_definitions(DivisionHud4SA PRIVATE
     GTASA
     PLUGIN_SGV_10US
@@ -55,3 +55,5 @@ target_compile_definitions(DivisionHud4SA PRIVATE
 target_link_directories(DivisionHud4SA PRIVATE $ENV{PLUGIN_SDK_DIR}\\output\\lib)
 target_link_libraries(DivisionHud4SA PRIVATE plugin d3d9 d3dcompiler gdi32)
 target_link_options(DivisionHud4SA PRIVATE /LTCG /INCREMENTAL:NO)
+
+
