@@ -2,6 +2,7 @@
 #include "plugin.h"
 
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <string>
 
@@ -10,8 +11,8 @@ namespace {
     char const SECTION[] = "DivisionHud4SA";
 
     std::string g_path;
-    ULONGLONG g_lastWrite = 0;
-    unsigned int g_frameCounter = 0;
+    std::filesystem::file_time_type g_last_write { };
+    unsigned int g_frame_counter = 0;
 
     std::string const& IniPath()
     {
@@ -143,8 +144,8 @@ namespace {
 void Load()
 {
     {
-        std::ifstream existing(IniPath().c_str());
-        if (!existing.good())
+        std::error_code ec;
+        if (!std::filesystem::exists(IniPath(), ec))
             WriteDefaults();
     }
 
@@ -246,17 +247,16 @@ void Load()
 
 void Update()
 {
-    if ((g_frameCounter++ % 30) != 0)
+    if ((g_frame_counter++ % 30) != 0)
         return;
 
-    WIN32_FILE_ATTRIBUTE_DATA attributes { };
-    if (!GetFileAttributesExA(IniPath().c_str(), GetFileExInfoStandard, &attributes))
+    std::error_code ec;
+    auto const last_write = std::filesystem::last_write_time(IniPath(), ec);
+    if (ec)
         return;
 
-    ULONGLONG const last_write = (static_cast<ULONGLONG>(attributes.ftLastWriteTime.dwHighDateTime) << 32) | static_cast<ULONGLONG>(attributes.ftLastWriteTime.dwLowDateTime);
-
-    if (last_write != g_lastWrite) {
-        g_lastWrite = last_write;
+    if (last_write != g_last_write) {
+        g_last_write = last_write;
         Load();
     }
 }
