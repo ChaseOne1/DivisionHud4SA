@@ -55,6 +55,18 @@ namespace Config
     inline float    PanelVitalsStaminaFadeIn    = 0.40f;
     inline float    PanelVitalsStaminaFadeOut   = 1.00f;
     inline float    PanelVitalsStaminaHold      = 2.0f;
+
+    inline float    PanelHudTextSize  = 0.36f;
+    inline float    PanelHudIconSize  = 0.42f;
+    inline D3DCOLOR PanelHudTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    inline D3DCOLOR PanelHudIconColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    inline int      PanelMoneyDigits  = 8;
+    inline float    PanelSkillIconX   = 0.12f;
+    inline float    PanelSkillValueX  = 0.34f;
+    inline float    PanelClockIconX   = 0.08f;
+    inline float    PanelClockValueX  = 0.20f;
+    inline float    PanelWantedIconX  = 0.68f;
+    inline float    PanelWantedValueX = 0.84f;
     inline float PanelLineWidth       = 2.0f;
     inline float PanelLineAlpha       = 1.0f;
     inline float PanelLineAlphaBottom = 1.0f;

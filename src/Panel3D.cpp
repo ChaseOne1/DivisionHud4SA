@@ -7,6 +7,8 @@
 #include "CPlayerData.h"
 #include "CStats.h"
 #include "CWorld.h"
+#include "CWanted.h"
+#include "CClock.h"
 #include "CCamera.h"
 #include "CTimer.h"
 #include "CSprite.h"
@@ -15,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <iterator>
 #include <string>
@@ -212,6 +215,196 @@ namespace division
                 return;
 
             AppendSoftRect(out, tl, tr, bl, br, color);
+        }
+
+        void AppendSolidTri(std::vector<BarVertex> &out, ScreenPoint const &a, ScreenPoint const &b,
+                            ScreenPoint const &c, D3DCOLOR color)
+        {
+            BarVertex v[3];
+            ScreenPoint const points[3] = { a, b, c };
+            for (int i = 0; i < 3; ++i)
+            {
+                v[i].x = points[i].x;
+                v[i].y = points[i].y;
+                v[i].z = 0.0f;
+                v[i].rhw = 1.0f;
+                v[i].color = color;
+                v[i].u = 64.0f;
+                v[i].v = 64.0f;
+                v[i].u2 = 64.0f;
+                v[i].v2 = 64.0f;
+                out.push_back(v[i]);
+            }
+        }
+
+        template <class ProjectPoint>
+        void AppendSolidRect(std::vector<BarVertex> &out, ProjectPoint const &projectPoint, float x0, float y0,
+                             float x1, float y1, D3DCOLOR color)
+        {
+            ScreenPoint tl, tr, bl, br;
+            if (!projectPoint(x0, y1, tl) || !projectPoint(x1, y1, tr) ||
+                !projectPoint(x0, y0, bl) || !projectPoint(x1, y0, br))
+                return;
+            AppendSolidTri(out, tl, tr, bl, color);
+            AppendSolidTri(out, bl, tr, br, color);
+        }
+
+        template <class ProjectPoint>
+        void AppendRing(std::vector<BarVertex> &out, ProjectPoint const &projectPoint, float cx, float cy, float rx,
+                        float ry, float innerRatio, D3DCOLOR color)
+        {
+            constexpr int kSegments = 28;
+            for (int i = 0; i < kSegments; ++i)
+            {
+                float const a0 = i * 2.0f * kPi / kSegments;
+                float const a1 = (i + 1) * 2.0f * kPi / kSegments;
+                float const c0 = std::cos(a0), s0 = std::sin(a0);
+                float const c1 = std::cos(a1), s1 = std::sin(a1);
+                ScreenPoint o0, o1, t0, t1;
+                if (!projectPoint(cx + c0 * rx, cy + s0 * ry, o0) ||
+                    !projectPoint(cx + c1 * rx, cy + s1 * ry, o1) ||
+                    !projectPoint(cx + c0 * rx * innerRatio, cy + s0 * ry * innerRatio, t0) ||
+                    !projectPoint(cx + c1 * rx * innerRatio, cy + s1 * ry * innerRatio, t1))
+                    return;
+                AppendSolidTri(out, o0, o1, t0, color);
+                AppendSolidTri(out, t0, o1, t1, color);
+            }
+        }
+
+        template <class ProjectPoint>
+        void AppendStar(std::vector<BarVertex> &out, ProjectPoint const &projectPoint, float cx, float cy, float rx,
+                        float ry, D3DCOLOR color)
+        {
+            constexpr int kPoints = 5;
+            ScreenPoint outer[kPoints], inner[kPoints], center;
+            if (!projectPoint(cx, cy, center))
+                return;
+            for (int i = 0; i < kPoints; ++i)
+            {
+                float const ao = -kPi * 0.5f + i * 2.0f * kPi / kPoints;
+                float const ai = ao + kPi / kPoints;
+                if (!projectPoint(cx + std::cos(ao) * rx, cy + std::sin(ao) * ry, outer[i]) ||
+                    !projectPoint(cx + std::cos(ai) * rx * 0.4f, cy + std::sin(ai) * ry * 0.4f, inner[i]))
+                    return;
+            }
+            for (int i = 0; i < kPoints; ++i)
+            {
+                int const j = (i + 1) % kPoints;
+                AppendSolidTri(out, center, outer[i], inner[i], color);
+                AppendSolidTri(out, center, inner[i], outer[j], color);
+            }
+        }
+
+        template <class ProjectPoint>
+        bool DrawString(IDirect3DDevice9 *device, TextRenderer &text, ProjectPoint const &projectPoint,
+                        std::string const &str, float xLeft, float yCenter, float glyphHeight, D3DCOLOR color)
+        {
+            int texW = 0;
+            int texH = 0;
+            IDirect3DTexture9 *texture = text.Get(device, str, texW, texH);
+            if (!texture || texW <= 0 || texH <= 0)
+                return false;
+
+            float const unitAspect = Config::PanelHeight / std::max(Config::PanelLength, 0.0001f);
+            float const glyphWidth = glyphHeight * (static_cast<float>(texW) / static_cast<float>(texH)) * unitAspect;
+
+            ScreenPoint tl, tr, bl, br;
+            if (!projectPoint(xLeft, yCenter + glyphHeight * 0.5f, tl) ||
+                !projectPoint(xLeft + glyphWidth, yCenter + glyphHeight * 0.5f, tr) ||
+                !projectPoint(xLeft, yCenter - glyphHeight * 0.5f, bl) ||
+                !projectPoint(xLeft + glyphWidth, yCenter - glyphHeight * 0.5f, br))
+                return false;
+
+            device->SetTexture(0, texture);
+            ScreenPoint const quad[4] = { tl, tr, bl, br };
+            float const uv[4][2] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f } };
+            DrawTexturedQuad(device, quad, uv, color);
+            return true;
+        }
+
+        template <class ProjectPoint>
+        void DrawInfoIcons(IDirect3DDevice9 *device, ProjectPoint const &projectPoint, layout::PanelRects const &panels,
+                           float panelAlpha)
+        {
+            float const unitAspect = Config::PanelHeight / std::max(Config::PanelLength, 0.0001f);
+            D3DCOLOR const color = ScaledColor(Config::PanelHudIconColor, panelAlpha);
+
+            auto iconRadius = [&](layout::Rect const &r)
+            {
+                return (r.y1 - r.y0) * Config::PanelHudIconSize * 0.5f;
+            };
+
+            std::vector<BarVertex> vertices;
+            vertices.reserve(768);
+
+            {
+                layout::Rect const &r = panels.resource;
+                float const cx = r.x0 + (r.x1 - r.x0) * Config::PanelClockIconX;
+                float const cy = (r.y0 + r.y1) * 0.5f;
+                float const ry = iconRadius(r);
+                float const rx = ry * unitAspect;
+                AppendRing(vertices, projectPoint, cx, cy, rx, ry, 0.76f, color);
+                AppendSolidRect(vertices, projectPoint, cx - rx * 0.05f, cy, cx + rx * 0.05f, cy + ry * 0.52f, color);
+                AppendSolidRect(vertices, projectPoint, cx, cy - ry * 0.05f, cx + rx * 0.44f, cy + ry * 0.05f, color);
+            }
+
+            {
+                layout::Rect const &r = panels.resource;
+                float const cx = r.x0 + (r.x1 - r.x0) * Config::PanelWantedIconX;
+                float const cy = (r.y0 + r.y1) * 0.5f;
+                float const ry = iconRadius(r);
+                AppendStar(vertices, projectPoint, cx, cy, ry * unitAspect, ry, color);
+            }
+
+            if (!vertices.empty())
+                device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3),
+                                        vertices.data(), sizeof(BarVertex));
+        }
+
+        template <class ProjectPoint>
+        void DrawInfoText(IDirect3DDevice9 *device, TextRenderer &text, ProjectPoint const &projectPoint,
+                          layout::PanelRects const &panels, float panelAlpha)
+        {
+            D3DCOLOR const color = ScaledColor(Config::PanelHudTextColor, panelAlpha);
+            CPlayerInfo &info = CWorld::Players[CWorld::PlayerInFocus];
+
+            {
+                layout::Rect const &r = panels.skill;
+                float const cy = (r.y0 + r.y1) * 0.5f;
+                float const textHeight = (r.y1 - r.y0) * Config::PanelHudTextSize;
+                float const iconHeight = (r.y1 - r.y0) * Config::PanelHudIconSize;
+                char buffer[32]{};
+                std::snprintf(buffer, sizeof(buffer), "%0*d", std::max(1, Config::PanelMoneyDigits),
+                              info.m_nMoney);
+                DrawString(device, text, projectPoint, "$", r.x0 + (r.x1 - r.x0) * Config::PanelSkillIconX, cy,
+                           iconHeight, color);
+                DrawString(device, text, projectPoint, buffer, r.x0 + (r.x1 - r.x0) * Config::PanelSkillValueX, cy,
+                           textHeight, color);
+            }
+
+            {
+                layout::Rect const &r = panels.resource;
+                float const cy = (r.y0 + r.y1) * 0.5f;
+                float const textHeight = (r.y1 - r.y0) * Config::PanelHudTextSize;
+                char buffer[16]{};
+                std::snprintf(buffer, sizeof(buffer), "%02d:%02d", CClock::ms_nGameClockHours,
+                              CClock::ms_nGameClockMinutes);
+                DrawString(device, text, projectPoint, buffer, r.x0 + (r.x1 - r.x0) * Config::PanelClockValueX, cy,
+                           textHeight, color);
+            }
+
+            {
+                layout::Rect const &r = panels.resource;
+                float const cy = (r.y0 + r.y1) * 0.5f;
+                float const textHeight = (r.y1 - r.y0) * Config::PanelHudTextSize;
+                unsigned int wanted = 0;
+                if (info.m_PlayerData.m_pWanted)
+                    wanted = info.m_PlayerData.m_pWanted->m_nWantedLevel;
+                char buffer[16]{};
+                std::snprintf(buffer, sizeof(buffer), "%u", wanted);
+                DrawString(device, text, projectPoint, buffer, r.x0 + (r.x1 - r.x0) * Config::PanelWantedValueX, cy,
+                           textHeight, color);
+            }
         }
 
         template <class ProjectPoint>
@@ -1033,6 +1226,7 @@ namespace division
         device->SetPixelShader(m_barShader);
         device->SetFVF(kBarFvf);
         DrawVitals(device, projectPoint, alpha, m_staminaAlpha, m_breathAlpha);
+        DrawInfoIcons(device, projectPoint, panels, alpha);
         device->SetFVF(kFvf);
 
         if (!m_textInitialised)
@@ -1125,6 +1319,8 @@ namespace division
             drawNumber(nextZone, static_cast<int>(ped->m_aWeapons[nextSlot].m_nAmmoInClip),
                        Config::PanelAmmoSideSize, Config::PanelAmmoNextOffsetX, Config::PanelAmmoNextOffsetY,
                        Config::PanelAmmoSideColor);
+
+        DrawInfoText(device, m_text, projectPoint, panels, alpha);
     }
 
     void Panel3D::OnDeviceLost()

@@ -100,6 +100,17 @@ namespace Config
                 "panel_vitals_stamina_fade_in = 0.40\n"
                 "panel_vitals_stamina_fade_out = 1.00\n"
                 "panel_vitals_stamina_hold = 2.0\n"
+                "panel_hud_text_size = 0.36\n"
+                "panel_hud_icon_size = 0.42\n"
+                "panel_hud_text_color = FFFFFFFF\n"
+                "panel_hud_icon_color = FFFFFFFF\n"
+                "panel_money_digits = 8\n"
+                "panel_skill_icon_x = 0.12\n"
+                "panel_skill_value_x = 0.34\n"
+                "panel_clock_icon_x = 0.08\n"
+                "panel_clock_value_x = 0.20\n"
+                "panel_wanted_icon_x = 0.68\n"
+                "panel_wanted_value_x = 0.84\n"
                 "panel_line_width = 2.0\n"
                 "panel_line_alpha = 1.0\n"
                 "panel_line_alpha_bottom = 1.0\n"
@@ -188,6 +199,18 @@ namespace Config
         PanelVitalsStaminaFadeIn    = ReadFloat("panel_vitals_stamina_fade_in", PanelVitalsStaminaFadeIn);
         PanelVitalsStaminaFadeOut   = ReadFloat("panel_vitals_stamina_fade_out", PanelVitalsStaminaFadeOut);
         PanelVitalsStaminaHold      = ReadFloat("panel_vitals_stamina_hold", PanelVitalsStaminaHold);
+
+        PanelHudTextSize  = ReadFloat("panel_hud_text_size", PanelHudTextSize);
+        PanelHudIconSize  = ReadFloat("panel_hud_icon_size", PanelHudIconSize);
+        PanelHudTextColor = ReadHexColor("panel_hud_text_color", PanelHudTextColor);
+        PanelHudIconColor = ReadHexColor("panel_hud_icon_color", PanelHudIconColor);
+        PanelMoneyDigits  = ReadInt("panel_money_digits", PanelMoneyDigits);
+        PanelSkillIconX   = ReadFloat("panel_skill_icon_x", PanelSkillIconX);
+        PanelSkillValueX  = ReadFloat("panel_skill_value_x", PanelSkillValueX);
+        PanelClockIconX   = ReadFloat("panel_clock_icon_x", PanelClockIconX);
+        PanelClockValueX  = ReadFloat("panel_clock_value_x", PanelClockValueX);
+        PanelWantedIconX  = ReadFloat("panel_wanted_icon_x", PanelWantedIconX);
+        PanelWantedValueX = ReadFloat("panel_wanted_value_x", PanelWantedValueX);
         PanelLineWidth    = ReadFloat("panel_line_width", PanelLineWidth);
         PanelLineAlpha       = ReadFloat("panel_line_alpha", PanelLineAlpha);
         PanelLineAlphaBottom = ReadFloat("panel_line_alpha_bottom", PanelLineAlphaBottom);
