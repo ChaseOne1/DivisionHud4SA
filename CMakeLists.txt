@@ -12,6 +12,10 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 add_library(DivisionHud4SA SHARED
     src/DivisionHud4SA.cpp
+    src/Config.cpp
+    src/Panel3D.cpp
+    src/BlurBackground.cpp
+    src/TextRenderer.cpp
 )
 
 set_target_properties(DivisionHud4SA PROPERTIES
@@ -38,6 +42,7 @@ target_compile_definitions(DivisionHud4SA PRIVATE
     GTASA
     PLUGIN_SGV_10US
     RW
+    NOMINMAX
     _CRT_SECURE_NO_WARNINGS
     _CRT_NON_CONFORMING_SWPRINTFS
     _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
@@ -45,5 +50,5 @@ target_compile_definitions(DivisionHud4SA PRIVATE
 )
 
 target_link_directories(DivisionHud4SA PRIVATE $ENV{PLUGIN_SDK_DIR}\\output\\lib)
-target_link_libraries(DivisionHud4SA PRIVATE plugin)
+target_link_libraries(DivisionHud4SA PRIVATE plugin d3d9 d3dcompiler gdi32)
 target_link_options(DivisionHud4SA PRIVATE /LTCG /INCREMENTAL:NO)
