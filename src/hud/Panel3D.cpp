@@ -211,6 +211,7 @@ void Panel3D::Update()
 
     m_vitals.Update(ped, dt);
     m_ammo.Update(ped, dt);
+    m_damage.Update(ped, dt);
 }
 
 void Panel3D::Draw()
@@ -420,10 +421,11 @@ void Panel3D::Draw()
     device->SetFVF(BAR_FVF);
     m_vitals.Draw(device, surface, alpha, m_bar_vertices);
     DrawInfoIcons(device, surface, panels, alpha, m_bar_vertices);
+    m_damage.Draw(device, m_bar_vertices, alpha);
     device->SetFVF(VERTEX_FVF);
 
     if (!m_text_initialised) {
-        m_text.Initialize(PLUGIN_PATH("Borda Medium.ttf"), 128);
+        m_text.Initialize(PLUGIN_PATH("DivisionHud4SA/fonts/Borda Medium.ttf"), 128);
         m_text_initialised = true;
     }
 

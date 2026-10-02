@@ -1,5 +1,6 @@
 #include "plugin.h"
 #include "core/Config.hpp"
+#include "hud/DamageIndicators.hpp"
 #include "hud/Panel3D.hpp"
 
 using namespace plugin;
@@ -14,6 +15,7 @@ public:
     DivisionHud4SA()
     {
         division::core::Load();
+        division::hud::InstallDamageHook();
 
         Events::drawingEvent += [] {
             g_panel.Update();

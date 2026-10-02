@@ -15,7 +15,7 @@ namespace {
     std::string const& IniPath()
     {
         if (g_path.empty())
-            g_path = PLUGIN_PATH("DivisionHud4SA.ini");
+            g_path = PLUGIN_PATH("DivisionHud4SA/config/DivisionHud4SA.ini");
         return g_path;
     }
 
@@ -114,6 +114,21 @@ namespace {
                 "panel_vitals_health_pulse_scale = 0.6\n"
                 "panel_vitals_health_pulse_fade_in = 0.05\n"
                 "panel_vitals_health_pulse_fade_out = 0.25\n"
+                "panel_damage_center_x = 0.5\n"
+                "panel_damage_center_y = 0.5\n"
+                "panel_damage_radius = 90.0\n"
+                "panel_damage_arc_thickness = 5.0\n"
+                "panel_damage_arc_max_deg = 90.0\n"
+                "panel_damage_arc_min_deg = 12.0\n"
+                "panel_damage_arc_gain_deg = 10.0\n"
+                "panel_damage_arc_hold = 0.6\n"
+                "panel_damage_arc_shrink_deg = 60.0\n"
+                "panel_damage_forget = 3.0\n"
+                "panel_damage_pointer_size = 14.0\n"
+                "panel_damage_pointer_width = 0.4\n"
+                "panel_damage_color_armor = FFFFFFFF\n"
+                "panel_damage_color_health = FFE22D2D\n"
+                "panel_damage_max_sources = 8\n"
                 "panel_hud_text_size = 0.6\n"
                 "panel_hud_icon_size = 0.5\n"
                 "panel_hud_text_color = FFFFFFFF\n"
@@ -154,6 +169,9 @@ namespace {
                 "blur_iterations = 2\n"
                 "blur_saturation = 1.0\n"
                 "back_tint = FFFFFFFF\n";
+
+        CreateDirectoryA(PLUGIN_PATH("DivisionHud4SA"), nullptr);
+        CreateDirectoryA(PLUGIN_PATH("DivisionHud4SA/config"), nullptr);
 
         HANDLE const file = CreateFileA(IniPath().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
             FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -239,6 +257,22 @@ void Load()
     PanelVitalsHealthPulseScale = ReadFloat("panel_vitals_health_pulse_scale", PanelVitalsHealthPulseScale);
     PanelVitalsHealthPulseFadeIn = ReadFloat("panel_vitals_health_pulse_fade_in", PanelVitalsHealthPulseFadeIn);
     PanelVitalsHealthPulseFadeOut = ReadFloat("panel_vitals_health_pulse_fade_out", PanelVitalsHealthPulseFadeOut);
+
+    PanelDamageCenterX = ReadFloat("panel_damage_center_x", PanelDamageCenterX);
+    PanelDamageCenterY = ReadFloat("panel_damage_center_y", PanelDamageCenterY);
+    PanelDamageRadius = ReadFloat("panel_damage_radius", PanelDamageRadius);
+    PanelDamageArcThickness = ReadFloat("panel_damage_arc_thickness", PanelDamageArcThickness);
+    PanelDamageArcMaxDeg = ReadFloat("panel_damage_arc_max_deg", PanelDamageArcMaxDeg);
+    PanelDamageArcMinDeg = ReadFloat("panel_damage_arc_min_deg", PanelDamageArcMinDeg);
+    PanelDamageArcGainDeg = ReadFloat("panel_damage_arc_gain_deg", PanelDamageArcGainDeg);
+    PanelDamageArcHold = ReadFloat("panel_damage_arc_hold", PanelDamageArcHold);
+    PanelDamageArcShrinkDeg = ReadFloat("panel_damage_arc_shrink_deg", PanelDamageArcShrinkDeg);
+    PanelDamageForget = ReadFloat("panel_damage_forget", PanelDamageForget);
+    PanelDamagePointerSize = ReadFloat("panel_damage_pointer_size", PanelDamagePointerSize);
+    PanelDamagePointerWidth = ReadFloat("panel_damage_pointer_width", PanelDamagePointerWidth);
+    PanelDamageColorArmor = ReadHexColor("panel_damage_color_armor", PanelDamageColorArmor);
+    PanelDamageColorHealth = ReadHexColor("panel_damage_color_health", PanelDamageColorHealth);
+    PanelDamageMaxSources = ReadInt("panel_damage_max_sources", PanelDamageMaxSources);
 
     PanelHudTextSize = ReadFloat("panel_hud_text_size", PanelHudTextSize);
     PanelHudIconSize = ReadFloat("panel_hud_icon_size", PanelHudIconSize);

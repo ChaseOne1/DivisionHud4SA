@@ -1,6 +1,7 @@
 #pragma once
 
 #include <d3d9.h>
+#include <string>
 #include <vector>
 
 namespace division::render {
@@ -42,6 +43,10 @@ constexpr DWORD BAR_FVF = D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX2;
 
 D3DCOLOR ScaleColor(D3DCOLOR color, float extra);
 
+// Reads a text resource from the plugin's DivisionHud4SA resource folder (relative path),
+// returning `fallback` if it cannot be read.
+std::string LoadResourceText(char const* relative_path, char const* fallback);
+
 void DrawTexturedQuad(IDirect3DDevice9* device, ScreenPoint const (&points)[4], float const (&uv)[4][2],
     D3DCOLOR color);
 
@@ -56,6 +61,9 @@ void DrawEdgeLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint
 
 void AppendSolidTri(std::vector<BarVertex>& out, ScreenPoint const& a, ScreenPoint const& b,
     ScreenPoint const& c, D3DCOLOR color);
+// Anti-aliased triangle (soft edges via the bar shader's edge-distance coverage).
+void AppendAATri(std::vector<BarVertex>& out, ScreenPoint const& a, ScreenPoint const& b,
+    ScreenPoint const& c, D3DCOLOR color);
 void AppendAARect(std::vector<BarVertex>& out, PanelSurface const& surface, float x0, float y0, float x1,
     float y1, D3DCOLOR color);
 void AppendSolidRect(std::vector<BarVertex>& out, PanelSurface const& surface, float x0, float y0, float x1,
@@ -64,6 +72,13 @@ void AppendRing(std::vector<BarVertex>& out, PanelSurface const& surface, float 
     float ry, float inner_ratio, D3DCOLOR color);
 void AppendStar(std::vector<BarVertex>& out, PanelSurface const& surface, float cx, float cy, float rx,
     float ry, D3DCOLOR color);
+
+// Screen-space helpers for the damage indicators. Angles are measured clockwise from screen-up,
+// i.e. direction(angle) = (sin angle, -cos angle).
+void AppendArcScreen(std::vector<BarVertex>& out, float cx, float cy, float radius, float thickness,
+    float center_angle, float half_angle, D3DCOLOR color);
+void AppendPointerScreen(std::vector<BarVertex>& out, float cx, float cy, float radius, float angle,
+    float size, float width_ratio, D3DCOLOR color);
 
 // Saves and restores the D3D9 + RenderWare device state that the HUD overrides.
 class DeviceStateGuard

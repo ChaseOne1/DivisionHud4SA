@@ -103,6 +103,26 @@ IDirect3DPixelShader9* CompilePixelShader(IDirect3DDevice9* device, char const* 
     return shader;
 }
 
+std::string LoadResourceText(char const* relative_path, char const* fallback)
+{
+    HANDLE const file = CreateFileA(PLUGIN_PATH(relative_path), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER size { };
+        if (GetFileSizeEx(file, &size) && size.QuadPart > 0 && size.QuadPart < (1 << 20)) {
+            std::string text(static_cast<size_t>(size.QuadPart), '\0');
+            DWORD read = 0;
+            if (ReadFile(file, text.data(), static_cast<DWORD>(text.size()), &read, nullptr) && read > 0) {
+                CloseHandle(file);
+                text.resize(read);
+                return text;
+            }
+        }
+        CloseHandle(file);
+    }
+    return fallback ? std::string(fallback) : std::string();
+}
+
 void PanelSurface::SetCorners(ScreenPoint const& top_left, ScreenPoint const& top_right,
     ScreenPoint const& bottom_right, ScreenPoint const& bottom_left)
 {
@@ -148,24 +168,26 @@ void DrawTexturedQuad(IDirect3DDevice9* device, ScreenPoint const (&points)[4], 
 
 IDirect3DPixelShader9* CreateLineShader(IDirect3DDevice9* device)
 {
-    return CompilePixelShader(device,
+    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/line.hlsl",
         "float4 main(float2 uv : TEXCOORD0, float4 color : COLOR0) : COLOR\n"
         "{\n"
         "    float d = abs(uv.x);\n"
         "    float a = saturate(uv.y + 0.5 - d);\n"
         "    return float4(color.rgb, color.a * a);\n"
         "}\n");
+    return CompilePixelShader(device, source.c_str());
 }
 
 IDirect3DPixelShader9* CreateBarShader(IDirect3DDevice9* device)
 {
-    return CompilePixelShader(device,
+    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/bar.hlsl",
         "float4 main(float2 a : TEXCOORD0, float2 b : TEXCOORD1, float4 color : COLOR0) : COLOR\n"
         "{\n"
         "    float d = min(min(a.x, a.y), min(b.x, b.y));\n"
         "    float cov = saturate(d + 0.5);\n"
         "    return float4(color.rgb, color.a * cov);\n"
         "}\n");
+    return CompilePixelShader(device, source.c_str());
 }
 
 void DrawLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint const& to, float thickness,
@@ -230,6 +252,41 @@ void AppendSolidTri(std::vector<BarVertex>& out, ScreenPoint const& a, ScreenPoi
     }
 }
 
+void AppendAATri(std::vector<BarVertex>& out, ScreenPoint const& a, ScreenPoint const& b, ScreenPoint const& c,
+    D3DCOLOR color)
+{
+    auto distance_to_edge = [](ScreenPoint const& p, ScreenPoint const& q, ScreenPoint const& r) {
+        float const ex = q.x - p.x;
+        float const ey = q.y - p.y;
+        float const length = std::sqrt(ex * ex + ey * ey);
+        if (length < 1e-6f) return 0.0f;
+        return std::fabs((-ey * (r.x - p.x) + ex * (r.y - p.y)) / length);
+    };
+
+    // At each vertex only the distance to the opposite edge is non-zero; that distance is linear in
+    // the barycentric coordinates, so the shader feathers all three edges exactly.
+    float const da = distance_to_edge(b, c, a);
+    float const db = distance_to_edge(c, a, b);
+    float const dc = distance_to_edge(a, b, c);
+
+    auto push = [&](ScreenPoint const& p, float u, float v, float u2) {
+        BarVertex vertex;
+        vertex.x = p.x;
+        vertex.y = p.y;
+        vertex.z = 0.0f;
+        vertex.rhw = 1.0f;
+        vertex.color = color;
+        vertex.u = u;
+        vertex.v = v;
+        vertex.u2 = u2;
+        vertex.v2 = SOLID_COVERAGE;
+        out.push_back(vertex);
+    };
+    push(a, da, 0.0f, 0.0f);
+    push(b, 0.0f, db, 0.0f);
+    push(c, 0.0f, 0.0f, dc);
+}
+
 void AppendAARect(std::vector<BarVertex>& out, PanelSurface const& surface, float x0, float y0, float x1,
     float y1, D3DCOLOR color)
 {
@@ -283,6 +340,76 @@ void AppendStar(std::vector<BarVertex>& out, PanelSurface const& surface, float 
         AppendSolidTri(out, center, outer[i], inner[i], color);
         AppendSolidTri(out, center, inner[i], outer[j], color);
     }
+}
+
+void AppendArcScreen(std::vector<BarVertex>& out, float cx, float cy, float radius, float thickness,
+    float center_angle, float half_angle, D3DCOLOR color)
+{
+    float const half = std::max(0.0f, half_angle);
+    if (half <= 0.0f || thickness <= 0.0f) return;
+
+    float const inner = std::max(0.0f, radius - thickness * 0.5f);
+    float const outer = radius + thickness * 0.5f;
+    float const step_radians = 4.0f * PI_F / 180.0f;
+    int const segments = std::max(2, static_cast<int>(std::ceil(half / step_radians)));
+    float const a0 = center_angle - half;
+    float const a1 = center_angle + half;
+    float const step = (2.0f * half) / static_cast<float>(segments);
+
+    // Encode the band's four boundaries (inner/outer radius, the two caps) rather than the
+    // triangulation edges, so adjacent segments blend seamlessly and the arc reads anti-aliased.
+    auto vertex_at = [&](float angle, float rho) {
+        BarVertex vertex;
+        vertex.x = cx + std::sin(angle) * rho;
+        vertex.y = cy - std::cos(angle) * rho;
+        vertex.z = 0.0f;
+        vertex.rhw = 1.0f;
+        vertex.color = color;
+        vertex.u = rho - inner;
+        vertex.v = outer - rho;
+        vertex.u2 = std::fabs(rho * std::sin(angle - a0));
+        vertex.v2 = std::fabs(rho * std::sin(a1 - angle));
+        return vertex;
+    };
+
+    for (int i = 0; i < segments; ++i) {
+        float const angle0 = a0 + step * i;
+        float const angle1 = a0 + step * (i + 1);
+        BarVertex const i0 = vertex_at(angle0, inner);
+        BarVertex const o0 = vertex_at(angle0, outer);
+        BarVertex const i1 = vertex_at(angle1, inner);
+        BarVertex const o1 = vertex_at(angle1, outer);
+        out.push_back(i0);
+        out.push_back(o0);
+        out.push_back(i1);
+        out.push_back(i1);
+        out.push_back(o0);
+        out.push_back(o1);
+    }
+}
+
+void AppendPointerScreen(std::vector<BarVertex>& out, float cx, float cy, float radius, float angle,
+    float size, float width_ratio, D3DCOLOR color)
+{
+    if (size <= 0.0f) return;
+
+    // Isosceles triangle: base sits on the arc (radius), tip points outward, so the arc band
+    // covers the base and no hollow notch is left when the arc is shorter than the pointer.
+    // `width_ratio` (base width / length) makes it adjustable and can be small for a slender look.
+    float const w = size * std::max(0.0f, width_ratio) * 0.5f;
+    ScreenPoint const base { cx + std::sin(angle) * radius, cy - std::cos(angle) * radius };
+    ScreenPoint const outward { std::sin(angle), -std::cos(angle) };
+    ScreenPoint const lateral { std::cos(angle), std::sin(angle) };
+    auto place = [&](float lat, float along) {
+        return ScreenPoint { base.x + lateral.x * lat + outward.x * along,
+            base.y + lateral.y * lat + outward.y * along };
+    };
+
+    ScreenPoint const tip = place(0.0f, size);
+    ScreenPoint const back_right = place(w, 0.0f);
+    ScreenPoint const back_left = place(-w, 0.0f);
+
+    AppendAATri(out, tip, back_right, back_left, color);
 }
 
 DeviceStateGuard::DeviceStateGuard(IDirect3DDevice9* device)

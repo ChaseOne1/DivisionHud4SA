@@ -71,6 +71,23 @@ inline float PanelVitalsHealthPulseScale = 0.6f;
 inline float PanelVitalsHealthPulseFadeIn = 0.05f;
 inline float PanelVitalsHealthPulseFadeOut = 0.25f;
 
+// Damage source direction indicators (screen-space around the crosshair). Arc sizes are in degrees.
+inline float PanelDamageCenterX = 0.5f;
+inline float PanelDamageCenterY = 0.5f;
+inline float PanelDamageRadius = 90.0f;
+inline float PanelDamageArcThickness = 5.0f;
+inline float PanelDamageArcMaxDeg = 90.0f;
+inline float PanelDamageArcMinDeg = 12.0f;
+inline float PanelDamageArcGainDeg = 10.0f;
+inline float PanelDamageArcHold = 0.6f;
+inline float PanelDamageArcShrinkDeg = 60.0f;
+inline float PanelDamageForget = 3.0f;
+inline float PanelDamagePointerSize = 14.0f;
+inline float PanelDamagePointerWidth = 0.4f;   // triangle base width as a fraction of its length
+inline D3DCOLOR PanelDamageColorArmor = D3DCOLOR_ARGB(255, 255, 255, 255);
+inline D3DCOLOR PanelDamageColorHealth = D3DCOLOR_ARGB(255, 226, 45, 45);
+inline int PanelDamageMaxSources = 8;
+
 inline float PanelHudTextSize = 0.6f;
 inline float PanelHudIconSize = 0.5f;
 inline D3DCOLOR PanelHudTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);

@@ -16,6 +16,7 @@ add_library(DivisionHud4SA SHARED
     src/core/Config.cpp
     src/hud/Panel3D.cpp
     src/hud/HudWidgets.cpp
+    src/hud/DamageIndicators.cpp
     src/render/Gfx.cpp
     src/render/BlurBackground.cpp
     src/render/TextRenderer.cpp
@@ -56,5 +57,14 @@ target_compile_definitions(DivisionHud4SA PRIVATE
 target_link_directories(DivisionHud4SA PRIVATE $ENV{PLUGIN_SDK_DIR}\\output\\lib)
 target_link_libraries(DivisionHud4SA PRIVATE plugin d3d9 d3dcompiler gdi32)
 target_link_options(DivisionHud4SA PRIVATE /LTCG /INCREMENTAL:NO)
+
+# Deploy runtime resources (organised by category) into scripts/DivisionHud4SA next to the ASI.
+add_custom_command(TARGET DivisionHud4SA POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$ENV{GTA_SA_DIR}/scripts/DivisionHud4SA"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "$ENV{GTA_SA_DIR}/scripts/DivisionHud4SA"
+    COMMENT "Deploying DivisionHud4SA resources"
+)
 
 

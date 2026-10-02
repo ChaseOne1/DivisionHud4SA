@@ -6,6 +6,7 @@
 #include "core/Spring.hpp"
 #include "render/BlurBackground.hpp"
 #include "render/TextRenderer.hpp"
+#include "hud/DamageIndicators.hpp"
 #include "hud/HudWidgets.hpp"
 
 namespace division::hud {
@@ -49,6 +50,7 @@ private:
     render::TextRenderer m_text;
     Vitals m_vitals;
     AmmoPanel m_ammo;
+    DamageIndicators m_damage;
     std::vector<render::BarVertex> m_bar_vertices;
     bool m_text_initialised = false;
     IDirect3DPixelShader9* m_line_shader = nullptr;

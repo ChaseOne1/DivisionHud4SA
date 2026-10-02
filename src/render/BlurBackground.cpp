@@ -114,7 +114,8 @@ bool BlurBackground::EnsureShader(IDirect3DDevice9* device)
 {
     if (m_pixel_shader) return true;
 
-    m_pixel_shader = CompilePixelShader(device, BLUR_SHADER_SOURCE);
+    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/blur.hlsl", BLUR_SHADER_SOURCE);
+    m_pixel_shader = CompilePixelShader(device, source.c_str());
     return m_pixel_shader != nullptr;
 }
 
