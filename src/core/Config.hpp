@@ -55,11 +55,21 @@ inline float PanelVitalsBreathHold = 1.0f;
 inline D3DCOLOR PanelVitalsCursorColor = D3DCOLOR_ARGB(255, 255, 255, 255);
 inline float PanelVitalsCursorWidth = 0.004f;
 inline float PanelVitalsCursorScale = 1.6f;
+inline float PanelVitalsCursorDotGap = 0.012f;
 inline float PanelVitalsArmorUnit = 3.0f;
 inline float PanelVitalsArmorGap = 0.008f;
 inline float PanelVitalsStaminaFadeIn = 0.09f;
 inline float PanelVitalsStaminaFadeOut = 0.09f;
 inline float PanelVitalsStaminaHold = 1.0f;
+inline float PanelVitalsMoveFade = 0.18f;   // stack reflow / bar appear-disappear transition
+// Health damage indicator (red trailing bar) and change pulse.
+inline D3DCOLOR PanelVitalsHealthChipColor = D3DCOLOR_ARGB(255, 210, 45, 45);
+inline float PanelVitalsHealthChipHold = 0.5f;
+inline float PanelVitalsHealthChipSpeed = 0.8f;
+inline float PanelVitalsHealthPulseHold = 0.15f;
+inline float PanelVitalsHealthPulseScale = 0.6f;
+inline float PanelVitalsHealthPulseFadeIn = 0.05f;
+inline float PanelVitalsHealthPulseFadeOut = 0.25f;
 
 inline float PanelHudTextSize = 0.6f;
 inline float PanelHudIconSize = 0.5f;
