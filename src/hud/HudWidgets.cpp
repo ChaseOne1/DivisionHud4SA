@@ -82,6 +82,17 @@ namespace {
         device->SetTexture(0, texture);
         ScreenPoint const quad[4] = { tl, tr, bl, br };
         float const uv[4][2] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f } };
+
+        if (core::PanelHudTextShadowOffset > 0.0f) {
+            float const o = core::PanelHudTextShadowOffset;
+            float const alpha = ((color >> 24) & 0xff) / 255.0f;
+            ScreenPoint const shadow[4] = {
+                { tl.x + o, tl.y + o }, { tr.x + o, tr.y + o },
+                { bl.x + o, bl.y + o }, { br.x + o, br.y + o },
+            };
+            DrawTexturedQuad(device, shadow, uv, ScaleColor(core::PanelHudTextShadowColor, alpha));
+        }
+
         DrawTexturedQuad(device, quad, uv, color);
         return true;
     }

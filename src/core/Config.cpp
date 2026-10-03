@@ -153,6 +153,8 @@ namespace {
                 "panel_hud_icon_size = 0.5\n"
                 "panel_hud_text_color = FFFFFFFF\n"
                 "panel_hud_icon_color = FFFFFFFF\n"
+                "panel_hud_text_shadow_color = 44000000\n"
+                "panel_hud_text_shadow_offset = 2.0\n"
                 "panel_money_digits = 10\n"
                 "panel_skill_icon_x = 0.05\n"
                 "panel_skill_value_x = 0.17\n"
@@ -319,6 +321,8 @@ void Load()
     PanelHudIconSize = ReadFloat("panel_hud_icon_size", PanelHudIconSize);
     PanelHudTextColor = ReadHexColor("panel_hud_text_color", PanelHudTextColor);
     PanelHudIconColor = ReadHexColor("panel_hud_icon_color", PanelHudIconColor);
+    PanelHudTextShadowColor = ReadHexColor("panel_hud_text_shadow_color", PanelHudTextShadowColor);
+    PanelHudTextShadowOffset = ReadFloat("panel_hud_text_shadow_offset", PanelHudTextShadowOffset);
     PanelMoneyDigits = ReadInt("panel_money_digits", PanelMoneyDigits);
     PanelSkillIconX = ReadFloat("panel_skill_icon_x", PanelSkillIconX);
     PanelSkillValueX = ReadFloat("panel_skill_value_x", PanelSkillValueX);
