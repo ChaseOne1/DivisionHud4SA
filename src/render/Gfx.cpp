@@ -190,6 +190,21 @@ IDirect3DPixelShader9* CreateBarShader(IDirect3DDevice9* device)
     return CompilePixelShader(device, source.c_str());
 }
 
+IDirect3DPixelShader9* CreateWaveShader(IDirect3DDevice9* device)
+{
+    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/wave.hlsl",
+        "float4 params : register(c0);\n"
+        "float4 main(float2 uv : TEXCOORD0, float4 color : COLOR0) : COLOR\n"
+        "{\n"
+        "    float g = 1.0 - smoothstep(params.x, params.x + max(params.y, 0.0001), uv.x);\n"
+        "    float dy = min(uv.y, 1.0 - uv.y) * params.z;\n"
+        "    float dx = uv.x * params.w;\n"
+        "    g *= saturate(dy + 0.5) * saturate(dx + 0.5);\n"
+        "    return float4(color.rgb, color.a * g);\n"
+        "}\n");
+    return CompilePixelShader(device, source.c_str());
+}
+
 void DrawLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint const& to, float thickness,
     D3DCOLOR color)
 {
@@ -308,18 +323,44 @@ void AppendSolidRect(std::vector<BarVertex>& out, PanelSurface const& surface, f
 void AppendRing(std::vector<BarVertex>& out, PanelSurface const& surface, float cx, float cy, float rx,
     float ry, float inner_ratio, D3DCOLOR color)
 {
-    constexpr int SEGMENTS = 28;
+    constexpr int SEGMENTS = 40;
+    float const inner = std::clamp(inner_ratio, 0.0f, 0.99f);
+    ScreenPoint const center = surface.Map(cx, cy);
+
+    // Encode the two circular boundaries (u = distance to the inner edge, v = distance
+    // to the outer edge) so both edges feather while the radial seams stay solid.
+    auto push = [&](ScreenPoint const& p, float to_inner, float to_outer) {
+        BarVertex vertex;
+        vertex.x = p.x;
+        vertex.y = p.y;
+        vertex.z = 0.0f;
+        vertex.rhw = 1.0f;
+        vertex.color = color;
+        vertex.u = to_inner;
+        vertex.v = to_outer;
+        vertex.u2 = 64.0f;
+        vertex.v2 = 64.0f;
+        out.push_back(vertex);
+    };
+    auto edge = [&](float angle, float ratio) {
+        return surface.Map(cx + std::cos(angle) * rx * ratio, cy + std::sin(angle) * ry * ratio);
+    };
+
     for (int i = 0; i < SEGMENTS; ++i) {
         float const a0 = i * 2.0f * PI_F / SEGMENTS;
         float const a1 = (i + 1) * 2.0f * PI_F / SEGMENTS;
-        float const c0 = std::cos(a0), s0 = std::sin(a0);
-        float const c1 = std::cos(a1), s1 = std::sin(a1);
-        ScreenPoint const o0 = surface.Map(cx + c0 * rx, cy + s0 * ry);
-        ScreenPoint const o1 = surface.Map(cx + c1 * rx, cy + s1 * ry);
-        ScreenPoint const t0 = surface.Map(cx + c0 * rx * inner_ratio, cy + s0 * ry * inner_ratio);
-        ScreenPoint const t1 = surface.Map(cx + c1 * rx * inner_ratio, cy + s1 * ry * inner_ratio);
-        AppendSolidTri(out, o0, o1, t0, color);
-        AppendSolidTri(out, t0, o1, t1, color);
+        ScreenPoint const o0 = edge(a0, 1.0f), o1 = edge(a1, 1.0f);
+        ScreenPoint const t0 = edge(a0, inner), t1 = edge(a1, inner);
+        float const ri0 = ScreenDistance(center, t0), ri1 = ScreenDistance(center, t1);
+        float const ro0 = ScreenDistance(center, o0), ro1 = ScreenDistance(center, o1);
+        float const b0 = std::max(0.0f, ro0 - ri0);
+        float const b1 = std::max(0.0f, ro1 - ri1);
+        push(t0, 0.0f, b0);
+        push(o0, b0, 0.0f);
+        push(t1, 0.0f, b1);
+        push(t1, 0.0f, b1);
+        push(o0, b0, 0.0f);
+        push(o1, b1, 0.0f);
     }
 }
 
@@ -335,10 +376,38 @@ void AppendStar(std::vector<BarVertex>& out, PanelSurface const& surface, float 
         inner[i] = surface.Map(cx + std::cos(ai) * rx * 0.4f, cy + std::sin(ai) * ry * 0.4f);
     }
     ScreenPoint const center = surface.Map(cx, cy);
+
+    // Feather only the outline: each fan triangle carries the perpendicular distance to
+    // its boundary edge (0 at the two boundary vertices), the radial edges stay solid.
+    auto push = [&](ScreenPoint const& p, float to_edge) {
+        BarVertex vertex;
+        vertex.x = p.x;
+        vertex.y = p.y;
+        vertex.z = 0.0f;
+        vertex.rhw = 1.0f;
+        vertex.color = color;
+        vertex.u = to_edge;
+        vertex.v = 64.0f;
+        vertex.u2 = 64.0f;
+        vertex.v2 = 64.0f;
+        out.push_back(vertex);
+    };
+    auto line_distance = [](ScreenPoint const& a, ScreenPoint const& b, ScreenPoint const& p) {
+        float const ex = b.x - a.x, ey = b.y - a.y;
+        float const length = std::sqrt(ex * ex + ey * ey);
+        if (length < 1e-4f) return 0.0f;
+        return std::fabs(-ey * (p.x - a.x) + ex * (p.y - a.y)) / length;
+    };
+
     for (int i = 0; i < POINTS; ++i) {
         int const j = (i + 1) % POINTS;
-        AppendSolidTri(out, center, outer[i], inner[i], color);
-        AppendSolidTri(out, center, inner[i], outer[j], color);
+        push(outer[i], 0.0f);
+        push(inner[i], 0.0f);
+        push(center, line_distance(outer[i], inner[i], center));
+
+        push(inner[i], 0.0f);
+        push(outer[j], 0.0f);
+        push(center, line_distance(inner[i], outer[j], center));
     }
 }
 

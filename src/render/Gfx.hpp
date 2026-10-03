@@ -52,6 +52,7 @@ void DrawTexturedQuad(IDirect3DDevice9* device, ScreenPoint const (&points)[4], 
 
 IDirect3DPixelShader9* CreateLineShader(IDirect3DDevice9* device);
 IDirect3DPixelShader9* CreateBarShader(IDirect3DDevice9* device);
+IDirect3DPixelShader9* CreateWaveShader(IDirect3DDevice9* device);
 IDirect3DPixelShader9* CompilePixelShader(IDirect3DDevice9* device, char const* source);
 
 void DrawLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint const& to, float thickness,

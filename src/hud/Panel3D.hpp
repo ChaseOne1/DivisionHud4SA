@@ -50,11 +50,13 @@ private:
     render::TextRenderer m_text;
     Vitals m_vitals;
     AmmoPanel m_ammo;
+    WantedBar m_wanted;
     DamageIndicators m_damage;
     std::vector<render::BarVertex> m_bar_vertices;
     bool m_text_initialised = false;
     IDirect3DPixelShader9* m_line_shader = nullptr;
     IDirect3DPixelShader9* m_bar_shader = nullptr;
+    IDirect3DPixelShader9* m_wave_shader = nullptr;
 };
 
 }

@@ -5,6 +5,7 @@
 #include "CCamera.h"
 #include "CTimer.h"
 #include "CSprite.h"
+#include "CWorld.h"
 #include "ePedBones.h"
 #include "eCamMode.h"
 
@@ -211,6 +212,7 @@ void Panel3D::Update()
 
     m_vitals.Update(ped, dt);
     m_ammo.Update(ped, dt);
+    m_wanted.Update(CWorld::Players[CWorld::PlayerInFocus].m_PlayerData.m_pWanted, dt);
     m_damage.Update(ped, dt);
 }
 
@@ -419,6 +421,18 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     device->SetPixelShader(m_bar_shader);
     device->SetFVF(BAR_FVF);
     m_vitals.Draw(device, surface, alpha, m_bar_vertices);
+    m_wanted.DrawMask(device, surface, panels, alpha, m_bar_vertices);
+
+    if (!m_wave_shader)
+        m_wave_shader = CreateWaveShader(device);
+    if (m_wave_shader) {
+        device->SetPixelShader(m_wave_shader);
+        device->SetFVF(VERTEX_FVF);
+        m_wanted.DrawWave(device, surface, panels, alpha);
+        device->SetPixelShader(m_bar_shader);
+        device->SetFVF(BAR_FVF);
+    }
+
     DrawInfoIcons(device, surface, panels, alpha, m_bar_vertices);
     m_damage.Draw(device, m_bar_vertices, alpha);
     device->SetFVF(VERTEX_FVF);
@@ -452,6 +466,10 @@ void Panel3D::OnDeviceLost()
     if (m_bar_shader) {
         m_bar_shader->Release();
         m_bar_shader = nullptr;
+    }
+    if (m_wave_shader) {
+        m_wave_shader->Release();
+        m_wave_shader = nullptr;
     }
 }
 }

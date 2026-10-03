@@ -127,6 +127,21 @@ inline float PanelClockIconX = 0.1f;
 inline float PanelClockValueX = 0.22f;
 inline float PanelWantedIconX = 0.68f;
 inline float PanelWantedValueX = 0.82f;
+// Wanted-tier progress overlay (fills left-to-right as chaos grows; the whole
+// wanted area fades out and a highlight sweeps across the filled part).
+inline float PanelWantedBarX0 = 0.62f;                              // start (fraction of resource panel width)
+inline float PanelWantedBarX1 = 1.0f;                               // end
+inline D3DCOLOR PanelWantedBarColor = D3DCOLOR_ARGB(0x33, 255, 255, 255); // fill mask
+inline float PanelWantedBarSpeed = 8.0f;                            // fill smoothing rate (1/seconds)
+inline float PanelWantedBreath = 0.7f;                              // whole-area breathing tint strength (0..1)
+inline D3DCOLOR PanelWantedWaveColor = D3DCOLOR_ARGB(0x55, 255, 255, 255);
+inline float PanelWantedWaveWidth = 0.1f;                           // sweep leading-edge softness (fraction of area)
+inline float PanelWantedWaveSweep = 0.6f;                           // seconds for one sweep
+inline float PanelWantedWaveFade = 0.3f;                            // seconds to fade the highlight out
+inline float PanelWantedWaveInterval = 2.0f;                        // seconds between sweeps
+// "Star gained" flash: the wanted area turns this colour, then fades over the duration.
+inline D3DCOLOR PanelWantedFullColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+inline float PanelWantedFullDuration = 0.25f;
 inline float PanelLineWidth = 1.0f;
 inline float PanelLineAlpha = 0.8f;
 inline float PanelLineAlphaBottom = 0.2f;
