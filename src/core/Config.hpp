@@ -40,6 +40,32 @@ inline float PanelAmmoFirePopDecay = 6.0f;
 inline float PanelAmmoReloadTransition = 0.25f;
 inline D3DCOLOR PanelAmmoSideReloadColor = D3DCOLOR_ARGB(85, 255, 255, 255);
 
+// Weapon-switch preview row (screen-space, top-centre). Shown briefly after the
+// selected weapon slot changes; every occupied slot is listed, cyclically, up to
+// five panels with the current weapon centre-highlighted.
+inline float WeaponPreviewCenterX = 0.5f;
+inline float WeaponPreviewCenterY = 0.16f;
+inline int WeaponPreviewMaxCount = 5;           // max panels shown (1..5)
+// Icon size knob: drawn icon height as a fraction of the screen height. The panel
+// height/width and the ammo row are derived from it, so this scales the whole row.
+inline float WeaponPreviewIconHeight = 0.05f;
+inline float WeaponPreviewPanelAspect = 2.4f;   // panel width / panel height
+inline float WeaponPreviewIconPad = 0.18f;      // vertical pad inside icon region / icon height
+inline float WeaponPreviewAmmoRatio = 0.55f;    // ammo region height / icon height
+inline float WeaponPreviewGap = 0.006f;         // gap between panels (fraction of screen width)
+inline float WeaponPreviewMaxWidth = 0.72f;     // row width cap; row scaled down if exceeded
+inline float WeaponPreviewActiveScale = 1.12f;  // current panel uniform enlargement
+inline D3DCOLOR WeaponPreviewActiveColor = D3DCOLOR_ARGB(217, 232, 135, 26);
+inline D3DCOLOR WeaponPreviewLineColor = D3DCOLOR_ARGB(204, 255, 255, 255);
+inline float WeaponPreviewLineWidth = 1.0f;
+inline D3DCOLOR WeaponPreviewTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+inline float WeaponPreviewTextSize = 0.75f;     // fraction of the ammo region height
+inline float WeaponPreviewHold = 1.5f;          // seconds visible after a switch
+inline float WeaponPreviewFadeIn = 0.15f;       // seconds
+inline float WeaponPreviewFadeOut = 0.30f;      // seconds
+inline float WeaponPreviewSlideSpeed = 4.0f;    // row slide rate (1/seconds)
+inline float WeaponPreviewScaleSpeed = 8.0f;    // (reserved) icon grow/shrink rate
+
 inline float PanelVitalsOffsetY = 0.04f;
 inline float PanelVitalsGap = 0.05f;
 inline float PanelVitalsLength = 1.0f;

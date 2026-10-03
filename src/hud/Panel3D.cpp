@@ -214,7 +214,7 @@ void Panel3D::Update()
     m_damage.Update(ped, dt);
 }
 
-void Panel3D::Draw()
+void Panel3D::Draw(IDirect3DTexture9* blurred)
 {
     if (m_alpha < 0.01f || !m_initialised) return;
 
@@ -325,13 +325,12 @@ void Panel3D::Draw()
         quad[i].y = m_ads_from[i].y + (ads_quad[i].y - m_ads_from[i].y) * m_ads_blend;
     }
 
+    if (!blurred) return;
+
     PanelSurface surface;
     surface.SetCorners(quad[3], quad[2], quad[1], quad[0]);
 
     DeviceStateGuard guard(device);
-
-    IDirect3DTexture9* blurred = m_blur.Update(device);
-    if (!blurred) return;
 
     device->SetVertexShader(nullptr);
     device->SetPixelShader(nullptr);
@@ -445,7 +444,6 @@ void Panel3D::Draw()
 
 void Panel3D::OnDeviceLost()
 {
-    m_blur.OnDeviceLost();
     m_text.OnDeviceLost();
     if (m_line_shader) {
         m_line_shader->Release();

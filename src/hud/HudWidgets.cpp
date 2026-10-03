@@ -50,7 +50,8 @@ namespace {
 
     bool IsOccupiedSlot(CPed* ped, int slot)
     {
-        CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(ped->m_aWeapons[slot].m_eWeaponType, 0);
+        // Skill 1 is the base weapon row (skill 0 indexes a different weapon entry).
+        CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(ped->m_aWeapons[slot].m_eWeaponType, 1);
         return info && static_cast<int>(info->m_nSlot) == slot;
     }
 

@@ -17,6 +17,7 @@ add_library(DivisionHud4SA SHARED
     src/hud/Panel3D.cpp
     src/hud/HudWidgets.cpp
     src/hud/DamageIndicators.cpp
+    src/hud/WeaponPreview.cpp
     src/render/Gfx.cpp
     src/render/BlurBackground.cpp
     src/render/TextRenderer.cpp

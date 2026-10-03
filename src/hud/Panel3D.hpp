@@ -1,10 +1,10 @@
 #pragma once
 
+#include <d3d9.h>
 #include <vector>
 
 #include "CVector.h"
 #include "core/Spring.hpp"
-#include "render/BlurBackground.hpp"
 #include "render/TextRenderer.hpp"
 #include "hud/DamageIndicators.hpp"
 #include "hud/HudWidgets.hpp"
@@ -16,7 +16,8 @@ class Panel3D
 {
 public:
     void Update();
-    void Draw();
+    // `blurred` is the shared full-screen blur produced once per frame.
+    void Draw(IDirect3DTexture9* blurred);
     void OnDeviceLost();
 
 private:
@@ -46,7 +47,6 @@ private:
     float m_prev_heading = 0.0f;
     bool m_has_prev_heading = false;
 
-    render::BlurBackground m_blur;
     render::TextRenderer m_text;
     Vitals m_vitals;
     AmmoPanel m_ammo;
