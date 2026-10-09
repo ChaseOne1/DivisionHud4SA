@@ -15,10 +15,16 @@ add_library(DivisionHud4SA SHARED
     src/DivisionHud4SA.cpp
     src/core/Config.cpp
     src/hud/Panel3D.cpp
-    src/hud/HudWidgets.cpp
     src/hud/DamageIndicators.cpp
     src/hud/WeaponPreview.cpp
-    src/render/Gfx.cpp
+    src/hud/widgets/Vitals.cpp
+    src/hud/widgets/AmmoPanel.cpp
+    src/hud/widgets/WantedBar.cpp
+    src/hud/widgets/Info.cpp
+    src/render/ResourceText.cpp
+    src/render/Pipeline.cpp
+    src/render/Primitives.cpp
+    src/render/Shader.cpp
     src/render/BlurBackground.cpp
     src/render/TextRenderer.cpp
 )

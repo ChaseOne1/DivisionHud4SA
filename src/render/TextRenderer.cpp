@@ -60,6 +60,7 @@ void TextRenderer::Shutdown()
             entry.second.texture->Release();
     }
     m_cache.clear();
+    m_insertion_order.clear();
 
     if (m_font) {
         DeleteObject(m_font);
@@ -79,11 +80,12 @@ void TextRenderer::OnDeviceLost()
             entry.second.texture->Release();
     }
     m_cache.clear();
+    m_insertion_order.clear();
 }
 
-IDirect3DTexture9* TextRenderer::Get(IDirect3DDevice9* device, std::string const& text, int& width, int& height)
+IDirect3DTexture9* TextRenderer::Get(IDirect3DDevice9* device, std::string_view text, int& width, int& height)
 {
-    auto it = m_cache.find(text);
+    auto const it = m_cache.find(text);
     if (it != m_cache.end()) {
         width = it->second.width;
         height = it->second.height;
@@ -91,13 +93,8 @@ IDirect3DTexture9* TextRenderer::Get(IDirect3DDevice9* device, std::string const
     }
 
     constexpr size_t MAX_CACHE = 256;
-    if (m_cache.size() >= MAX_CACHE) {
-        for (auto& entry : m_cache) {
-            if (entry.second.texture)
-                entry.second.texture->Release();
-        }
-        m_cache.clear();
-    }
+    if (m_cache.size() >= MAX_CACHE)
+        EvictOldest();
 
     Entry entry;
     entry.texture = CreateTexture(device, text, entry.width, entry.height);
@@ -105,11 +102,26 @@ IDirect3DTexture9* TextRenderer::Get(IDirect3DDevice9* device, std::string const
     height = entry.height;
     if (!entry.texture) return nullptr;
 
-    m_cache[text] = entry;
+    // The key is copied exactly once, on the miss that rasters the glyph.
+    std::string key(text);
+    m_insertion_order.push_back(key);
+    m_cache.emplace(std::move(key), entry);
     return entry.texture;
 }
 
-IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::string const& text, int& width,
+void TextRenderer::EvictOldest()
+{
+    std::string const& oldest = m_insertion_order.front();
+    auto const it = m_cache.find(oldest);
+    if (it != m_cache.end()) {
+        if (it->second.texture)
+            it->second.texture->Release();
+        m_cache.erase(it);
+    }
+    m_insertion_order.pop_front();
+}
+
+IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::string_view text, int& width,
     int& height)
 {
     width = 0;
@@ -128,7 +140,7 @@ IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::st
     HGDIOBJ const old_font = SelectObject(dc, m_font);
 
     SIZE extent { };
-    GetTextExtentPoint32A(dc, text.c_str(), static_cast<int>(text.size()), &extent);
+    GetTextExtentPoint32A(dc, text.data(), static_cast<int>(text.size()), &extent);
     width = (extent.cx > 0) ? extent.cx : 1;
     height = (extent.cy > 0) ? extent.cy : 1;
 
@@ -155,7 +167,7 @@ IDirect3DTexture9* TextRenderer::CreateTexture(IDirect3DDevice9* device, std::st
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(255, 255, 255));
     SetTextAlign(dc, TA_TOP | TA_LEFT);
-    TextOutA(dc, 0, 0, text.c_str(), static_cast<int>(text.size()));
+    TextOutA(dc, 0, 0, text.data(), static_cast<int>(text.size()));
 
     IDirect3DTexture9* texture = nullptr;
     if (SUCCEEDED(device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr))) {

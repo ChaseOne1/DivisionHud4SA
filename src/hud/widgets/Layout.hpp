@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "core/Config.hpp"
+
 namespace division::hud {
 
 struct Rect
@@ -24,6 +26,13 @@ struct AmmoZones
     Rect next;
     float divider_x;
 };
+
+// The card's on-screen width / height aspect; geometry measured in normalized card
+// units needs it to stay square when drawn.
+inline float UnitAspect()
+{
+    return core::cfg.PanelHeight / std::max(core::cfg.PanelLength, 0.0001f);
+}
 
 inline AmmoZones ComputeAmmoZones(Rect const& ammo, float split, float clip_split)
 {

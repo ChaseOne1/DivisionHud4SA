@@ -1,20 +1,14 @@
 #include "render/BlurBackground.hpp"
 #include "core/Config.hpp"
-#include "render/Gfx.hpp"
+#include "render/Pipeline.hpp"
+#include "render/ResourceText.hpp"
+#include "render/Shader.hpp"
+#include "render/Surface.hpp"
 
 #include <algorithm>
 
 namespace division::render {
 namespace {
-    constexpr DWORD FULLSCREEN_FVF = D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1;
-
-    struct FullscreenVertex
-    {
-        float x, y, z, rhw;
-        D3DCOLOR color;
-        float u, v;
-    };
-
     char const* BLUR_SHADER_SOURCE = "sampler2D tex0 : register(s0);\n"
                                      "float4 params : register(c0);\n"
                                      "float4 main(float2 uv : TEXCOORD0) : COLOR\n"
@@ -135,7 +129,7 @@ void BlurBackground::BlurPass(IDirect3DDevice9* device, Target& destination, IDi
 
     device->SetVertexShader(nullptr);
     device->SetPixelShader(m_pixel_shader);
-    device->SetFVF(FULLSCREEN_FVF);
+    device->SetFVF(VERTEX_FVF);
     device->SetTexture(0, source);
 
     device->SetRenderState(D3DRS_ZENABLE, FALSE);
@@ -158,18 +152,18 @@ void BlurBackground::BlurPass(IDirect3DDevice9* device, Target& destination, IDi
     device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
     device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 
-    float const params[4] = { step_x, step_y, core::BlurSaturation, 0.0f };
+    float const params[4] = { step_x, step_y, core::cfg.BlurSaturation, 0.0f };
     device->SetPixelShaderConstantF(0, params, 1);
 
     float const w = static_cast<float>(destination.width);
     float const h = static_cast<float>(destination.height);
-    FullscreenVertex const vertices[4] = {
+    Vertex const vertices[4] = {
         { 0.0f, 0.0f, 0.0f, 1.0f, D3DCOLOR_ARGB(255, 255, 255, 255), 0.0f, 0.0f },
         { w, 0.0f, 0.0f, 1.0f, D3DCOLOR_ARGB(255, 255, 255, 255), 1.0f, 0.0f },
         { 0.0f, h, 0.0f, 1.0f, D3DCOLOR_ARGB(255, 255, 255, 255), 0.0f, 1.0f },
         { w, h, 0.0f, 1.0f, D3DCOLOR_ARGB(255, 255, 255, 255), 1.0f, 1.0f },
     };
-    device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(FullscreenVertex));
+    device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(Vertex));
 }
 
 IDirect3DTexture9* BlurBackground::Update(IDirect3DDevice9* device)
@@ -188,11 +182,11 @@ IDirect3DTexture9* BlurBackground::Update(IDirect3DDevice9* device)
     device->StretchRect(back_buffer, nullptr, m_half.surface, nullptr, D3DTEXF_LINEAR);
     device->StretchRect(m_half.surface, nullptr, m_quarter.surface, nullptr, D3DTEXF_LINEAR);
 
-    float const step_x = core::BlurSpacing / static_cast<float>(m_quarter.width);
-    float const step_y = core::BlurSpacing / static_cast<float>(m_quarter.height);
+    float const step_x = core::cfg.BlurSpacing / static_cast<float>(m_quarter.width);
+    float const step_y = core::cfg.BlurSpacing / static_cast<float>(m_quarter.height);
 
     IDirect3DTexture9* input = m_quarter.texture;
-    for (int i = 0; i < core::BlurIterations; ++i) {
+    for (int i = 0; i < core::cfg.BlurIterations; ++i) {
         BlurPass(device, m_temp, input, step_x, 0.0f);
         BlurPass(device, m_result, m_temp.texture, 0.0f, step_y);
         input = m_result.texture;

@@ -1,28 +1,14 @@
-#include "render/Gfx.hpp"
+#include "render/Primitives.hpp"
 
-#include "plugin.h"
+#include "core/Math.hpp"
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
-#include <d3dcompiler.h>
 
 namespace division::render {
 namespace {
-    float const PI_F = static_cast<float>(PI);
     constexpr float AASOFTNESS = 1.0f;
     constexpr float SOLID_COVERAGE = 64.0f;
-
-    void FillVertex(Vertex& v, ScreenPoint const& p, D3DCOLOR color)
-    {
-        v.x = p.x;
-        v.y = p.y;
-        v.z = 0.0f;
-        v.rhw = 1.0f;
-        v.color = color;
-        v.u = 0.0f;
-        v.v = 0.0f;
-    }
 
     float ScreenDistance(ScreenPoint const& a, ScreenPoint const& b)
     {
@@ -87,63 +73,6 @@ namespace {
     }
 }
 
-IDirect3DPixelShader9* CompilePixelShader(IDirect3DDevice9* device, char const* source)
-{
-    ID3DBlob* code = nullptr;
-    ID3DBlob* errors = nullptr;
-    HRESULT const hr = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, "main", "ps_2_0", 0, 0,
-        &code, &errors);
-    if (errors)
-        errors->Release();
-    if (FAILED(hr) || !code) return nullptr;
-
-    IDirect3DPixelShader9* shader = nullptr;
-    device->CreatePixelShader(reinterpret_cast<DWORD const*>(code->GetBufferPointer()), &shader);
-    code->Release();
-    return shader;
-}
-
-std::string LoadResourceText(char const* relative_path, char const* fallback)
-{
-    HANDLE const file = CreateFileA(PLUGIN_PATH(relative_path), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file != INVALID_HANDLE_VALUE) {
-        LARGE_INTEGER size { };
-        if (GetFileSizeEx(file, &size) && size.QuadPart > 0 && size.QuadPart < (1 << 20)) {
-            std::string text(static_cast<size_t>(size.QuadPart), '\0');
-            DWORD read = 0;
-            if (ReadFile(file, text.data(), static_cast<DWORD>(text.size()), &read, nullptr) && read > 0) {
-                CloseHandle(file);
-                text.resize(read);
-                return text;
-            }
-        }
-        CloseHandle(file);
-    }
-    return fallback ? std::string(fallback) : std::string();
-}
-
-void PanelSurface::SetCorners(ScreenPoint const& top_left, ScreenPoint const& top_right,
-    ScreenPoint const& bottom_right, ScreenPoint const& bottom_left)
-{
-    m_top_left = top_left;
-    m_top_right = top_right;
-    m_bottom_right = bottom_right;
-    m_bottom_left = bottom_left;
-}
-
-ScreenPoint PanelSurface::Map(float nx, float ny) const
-{
-    float const bottom_x = m_bottom_left.x + (m_bottom_right.x - m_bottom_left.x) * nx;
-    float const bottom_y = m_bottom_left.y + (m_bottom_right.y - m_bottom_left.y) * nx;
-    float const top_x = m_top_left.x + (m_top_right.x - m_top_left.x) * nx;
-    float const top_y = m_top_left.y + (m_top_right.y - m_top_left.y) * nx;
-    ScreenPoint out;
-    out.x = bottom_x + (top_x - bottom_x) * ny;
-    out.y = bottom_y + (top_y - bottom_y) * ny;
-    return out;
-}
-
 D3DCOLOR ScaleColor(D3DCOLOR color, float extra)
 {
     float const a = ((color >> 24) & 0xff) / 255.0f * std::clamp(extra, 0.0f, 1.0f);
@@ -194,45 +123,6 @@ void DrawBackdrop(IDirect3DDevice9* device, ScreenPoint const (&points)[4], floa
     device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
 }
 
-IDirect3DPixelShader9* CreateLineShader(IDirect3DDevice9* device)
-{
-    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/line.hlsl",
-        "float4 main(float2 uv : TEXCOORD0, float4 color : COLOR0) : COLOR\n"
-        "{\n"
-        "    float d = abs(uv.x);\n"
-        "    float a = saturate(uv.y + 0.5 - d);\n"
-        "    return float4(color.rgb, color.a * a);\n"
-        "}\n");
-    return CompilePixelShader(device, source.c_str());
-}
-
-IDirect3DPixelShader9* CreateBarShader(IDirect3DDevice9* device)
-{
-    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/bar.hlsl",
-        "float4 main(float2 a : TEXCOORD0, float2 b : TEXCOORD1, float4 color : COLOR0) : COLOR\n"
-        "{\n"
-        "    float d = min(min(a.x, a.y), min(b.x, b.y));\n"
-        "    float cov = saturate(d + 0.5);\n"
-        "    return float4(color.rgb, color.a * cov);\n"
-        "}\n");
-    return CompilePixelShader(device, source.c_str());
-}
-
-IDirect3DPixelShader9* CreateWaveShader(IDirect3DDevice9* device)
-{
-    static std::string const source = LoadResourceText("DivisionHud4SA/shaders/wave.hlsl",
-        "float4 params : register(c0);\n"
-        "float4 main(float2 uv : TEXCOORD0, float4 color : COLOR0) : COLOR\n"
-        "{\n"
-        "    float g = 1.0 - smoothstep(params.x, params.x + max(params.y, 0.0001), uv.x);\n"
-        "    float dy = min(uv.y, 1.0 - uv.y) * params.z;\n"
-        "    float dx = uv.x * params.w;\n"
-        "    g *= saturate(dy + 0.5) * saturate(dx + 0.5);\n"
-        "    return float4(color.rgb, color.a * g);\n"
-        "}\n");
-    return CompilePixelShader(device, source.c_str());
-}
-
 void DrawLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint const& to, float thickness,
     D3DCOLOR color)
 {
@@ -274,25 +164,6 @@ void DrawEdgeLine(IDirect3DDevice9* device, ScreenPoint const& from, ScreenPoint
     ScreenPoint const shifted_from = { from.x + nx * offset, from.y + ny * offset };
     ScreenPoint const shifted_to = { to.x + nx * offset, to.y + ny * offset };
     DrawLine(device, shifted_from, shifted_to, thickness, color);
-}
-
-void AppendSolidTri(std::vector<BarVertex>& out, ScreenPoint const& a, ScreenPoint const& b,
-    ScreenPoint const& c, D3DCOLOR color)
-{
-    ScreenPoint const points[3] = { a, b, c };
-    for (int i = 0; i < 3; ++i) {
-        BarVertex v;
-        v.x = points[i].x;
-        v.y = points[i].y;
-        v.z = 0.0f;
-        v.rhw = 1.0f;
-        v.color = color;
-        v.u = SOLID_COVERAGE;
-        v.v = SOLID_COVERAGE;
-        v.u2 = SOLID_COVERAGE;
-        v.v2 = SOLID_COVERAGE;
-        out.push_back(v);
-    }
 }
 
 void AppendAATri(std::vector<BarVertex>& out, ScreenPoint const& a, ScreenPoint const& b, ScreenPoint const& c,
@@ -337,17 +208,6 @@ void AppendAARect(std::vector<BarVertex>& out, PanelSurface const& surface, floa
         color);
 }
 
-void AppendSolidRect(std::vector<BarVertex>& out, PanelSurface const& surface, float x0, float y0, float x1,
-    float y1, D3DCOLOR color)
-{
-    ScreenPoint const tl = surface.Map(x0, y1);
-    ScreenPoint const tr = surface.Map(x1, y1);
-    ScreenPoint const bl = surface.Map(x0, y0);
-    ScreenPoint const br = surface.Map(x1, y0);
-    AppendSolidTri(out, tl, tr, bl, color);
-    AppendSolidTri(out, bl, tr, br, color);
-}
-
 void AppendRing(std::vector<BarVertex>& out, PanelSurface const& surface, float cx, float cy, float rx,
     float ry, float inner_ratio, D3DCOLOR color)
 {
@@ -366,8 +226,8 @@ void AppendRing(std::vector<BarVertex>& out, PanelSurface const& surface, float 
         vertex.color = color;
         vertex.u = to_inner;
         vertex.v = to_outer;
-        vertex.u2 = 64.0f;
-        vertex.v2 = 64.0f;
+        vertex.u2 = SOLID_COVERAGE;
+        vertex.v2 = SOLID_COVERAGE;
         out.push_back(vertex);
     };
     auto edge = [&](float angle, float ratio) {
@@ -375,8 +235,8 @@ void AppendRing(std::vector<BarVertex>& out, PanelSurface const& surface, float 
     };
 
     for (int i = 0; i < SEGMENTS; ++i) {
-        float const a0 = i * 2.0f * PI_F / SEGMENTS;
-        float const a1 = (i + 1) * 2.0f * PI_F / SEGMENTS;
+        float const a0 = i * 2.0f * core::PI_F / SEGMENTS;
+        float const a1 = (i + 1) * 2.0f * core::PI_F / SEGMENTS;
         ScreenPoint const o0 = edge(a0, 1.0f), o1 = edge(a1, 1.0f);
         ScreenPoint const t0 = edge(a0, inner), t1 = edge(a1, inner);
         float const ri0 = ScreenDistance(center, t0), ri1 = ScreenDistance(center, t1);
@@ -398,8 +258,8 @@ void AppendStar(std::vector<BarVertex>& out, PanelSurface const& surface, float 
     constexpr int POINTS = 5;
     ScreenPoint outer[POINTS], inner[POINTS];
     for (int i = 0; i < POINTS; ++i) {
-        float const ao = PI_F * 0.5f + i * 2.0f * PI_F / POINTS;
-        float const ai = ao + PI_F / POINTS;
+        float const ao = core::PI_F * 0.5f + i * 2.0f * core::PI_F / POINTS;
+        float const ai = ao + core::PI_F / POINTS;
         outer[i] = surface.Map(cx + std::cos(ao) * rx, cy + std::sin(ao) * ry);
         inner[i] = surface.Map(cx + std::cos(ai) * rx * 0.4f, cy + std::sin(ai) * ry * 0.4f);
     }
@@ -415,9 +275,9 @@ void AppendStar(std::vector<BarVertex>& out, PanelSurface const& surface, float 
         vertex.rhw = 1.0f;
         vertex.color = color;
         vertex.u = to_edge;
-        vertex.v = 64.0f;
-        vertex.u2 = 64.0f;
-        vertex.v2 = 64.0f;
+        vertex.v = SOLID_COVERAGE;
+        vertex.u2 = SOLID_COVERAGE;
+        vertex.v2 = SOLID_COVERAGE;
         out.push_back(vertex);
     };
     auto line_distance = [](ScreenPoint const& a, ScreenPoint const& b, ScreenPoint const& p) {
@@ -447,7 +307,7 @@ void AppendArcScreen(std::vector<BarVertex>& out, float cx, float cy, float radi
 
     float const inner = std::max(0.0f, radius - thickness * 0.5f);
     float const outer = radius + thickness * 0.5f;
-    float const step_radians = 4.0f * PI_F / 180.0f;
+    float const step_radians = 4.0f * core::PI_F / 180.0f;
     int const segments = std::max(2, static_cast<int>(std::ceil(half / step_radians)));
     float const a0 = center_angle - half;
     float const a1 = center_angle + half;
@@ -509,124 +369,4 @@ void AppendPointerScreen(std::vector<BarVertex>& out, float cx, float cy, float 
     AppendAATri(out, tip, back_right, back_left, color);
 }
 
-DeviceStateGuard::DeviceStateGuard(IDirect3DDevice9* device)
-    : m_device(device)
-{
-    Save();
-}
-
-DeviceStateGuard::~DeviceStateGuard() { Restore(); }
-
-void DeviceStateGuard::Save()
-{
-    RwRenderStateGet(rwRENDERSTATETEXTURERASTER, &m_rw_texture_raster);
-    RwRenderStateGet(rwRENDERSTATEZTESTENABLE, &m_rw_ztest);
-    RwRenderStateGet(rwRENDERSTATEZWRITEENABLE, &m_rw_zwrite);
-    RwRenderStateGet(rwRENDERSTATEVERTEXALPHAENABLE, &m_rw_vertex_alpha);
-    RwRenderStateGet(rwRENDERSTATEFOGENABLE, &m_rw_fog);
-    RwRenderStateGet(rwRENDERSTATESRCBLEND, &m_rw_src_blend);
-    RwRenderStateGet(rwRENDERSTATEDESTBLEND, &m_rw_dest_blend);
-    RwRenderStateGet(rwRENDERSTATECULLMODE, &m_rw_cull_mode);
-
-    m_device->GetVertexShader(&m_vertex_shader);
-    m_device->GetPixelShader(&m_pixel_shader);
-    m_device->GetVertexDeclaration(&m_vertex_declaration);
-    m_device->GetFVF(&m_fvf);
-    m_device->GetTexture(0, &m_texture);
-    m_device->GetStreamSource(0, &m_stream, &m_stream_offset, &m_stream_stride);
-    m_device->GetRenderTarget(0, &m_render_target);
-    m_device->GetViewport(&m_viewport);
-
-    m_device->GetRenderState(D3DRS_ZENABLE, &m_render_states[0]);
-    m_device->GetRenderState(D3DRS_ZWRITEENABLE, &m_render_states[1]);
-    m_device->GetRenderState(D3DRS_CULLMODE, &m_render_states[2]);
-    m_device->GetRenderState(D3DRS_LIGHTING, &m_render_states[3]);
-    m_device->GetRenderState(D3DRS_FOGENABLE, &m_render_states[4]);
-    m_device->GetRenderState(D3DRS_ALPHABLENDENABLE, &m_render_states[5]);
-    m_device->GetRenderState(D3DRS_SRCBLEND, &m_render_states[6]);
-    m_device->GetRenderState(D3DRS_DESTBLEND, &m_render_states[7]);
-    m_device->GetRenderState(D3DRS_ALPHATESTENABLE, &m_render_states[8]);
-    m_device->GetRenderState(D3DRS_SCISSORTESTENABLE, &m_render_states[9]);
-    m_device->GetRenderState(D3DRS_STENCILENABLE, &m_render_states[10]);
-    m_device->GetRenderState(D3DRS_COLORWRITEENABLE, &m_render_states[11]);
-    m_device->GetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, &m_render_states[12]);
-
-    m_device->GetTextureStageState(0, D3DTSS_COLOROP, &m_texture_stages[0]);
-    m_device->GetTextureStageState(0, D3DTSS_COLORARG1, &m_texture_stages[1]);
-    m_device->GetTextureStageState(0, D3DTSS_COLORARG2, &m_texture_stages[2]);
-    m_device->GetTextureStageState(0, D3DTSS_ALPHAOP, &m_texture_stages[3]);
-    m_device->GetTextureStageState(0, D3DTSS_ALPHAARG1, &m_texture_stages[4]);
-    m_device->GetTextureStageState(0, D3DTSS_ALPHAARG2, &m_texture_stages[5]);
-
-    m_device->GetSamplerState(0, D3DSAMP_MINFILTER, &m_sampler_states[0]);
-    m_device->GetSamplerState(0, D3DSAMP_MAGFILTER, &m_sampler_states[1]);
-    m_device->GetSamplerState(0, D3DSAMP_MIPFILTER, &m_sampler_states[2]);
-    m_device->GetSamplerState(0, D3DSAMP_ADDRESSU, &m_sampler_states[3]);
-    m_device->GetSamplerState(0, D3DSAMP_ADDRESSV, &m_sampler_states[4]);
-}
-
-void DeviceStateGuard::Restore()
-{
-    if (m_render_target) {
-        m_device->SetRenderTarget(0, m_render_target);
-        m_render_target->Release();
-    }
-    m_device->SetViewport(&m_viewport);
-
-    m_device->SetVertexShader(m_vertex_shader);
-    m_device->SetPixelShader(m_pixel_shader);
-    if (m_vertex_declaration)
-        m_device->SetVertexDeclaration(m_vertex_declaration);
-    else
-        m_device->SetFVF(m_fvf);
-    m_device->SetTexture(0, m_texture);
-    m_device->SetStreamSource(0, m_stream, m_stream_offset, m_stream_stride);
-
-    m_device->SetRenderState(D3DRS_ZENABLE, m_render_states[0]);
-    m_device->SetRenderState(D3DRS_ZWRITEENABLE, m_render_states[1]);
-    m_device->SetRenderState(D3DRS_CULLMODE, m_render_states[2]);
-    m_device->SetRenderState(D3DRS_LIGHTING, m_render_states[3]);
-    m_device->SetRenderState(D3DRS_FOGENABLE, m_render_states[4]);
-    m_device->SetRenderState(D3DRS_ALPHABLENDENABLE, m_render_states[5]);
-    m_device->SetRenderState(D3DRS_SRCBLEND, m_render_states[6]);
-    m_device->SetRenderState(D3DRS_DESTBLEND, m_render_states[7]);
-    m_device->SetRenderState(D3DRS_ALPHATESTENABLE, m_render_states[8]);
-    m_device->SetRenderState(D3DRS_SCISSORTESTENABLE, m_render_states[9]);
-    m_device->SetRenderState(D3DRS_STENCILENABLE, m_render_states[10]);
-    m_device->SetRenderState(D3DRS_COLORWRITEENABLE, m_render_states[11]);
-    m_device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, m_render_states[12]);
-
-    m_device->SetTextureStageState(0, D3DTSS_COLOROP, m_texture_stages[0]);
-    m_device->SetTextureStageState(0, D3DTSS_COLORARG1, m_texture_stages[1]);
-    m_device->SetTextureStageState(0, D3DTSS_COLORARG2, m_texture_stages[2]);
-    m_device->SetTextureStageState(0, D3DTSS_ALPHAOP, m_texture_stages[3]);
-    m_device->SetTextureStageState(0, D3DTSS_ALPHAARG1, m_texture_stages[4]);
-    m_device->SetTextureStageState(0, D3DTSS_ALPHAARG2, m_texture_stages[5]);
-
-    m_device->SetSamplerState(0, D3DSAMP_MINFILTER, m_sampler_states[0]);
-    m_device->SetSamplerState(0, D3DSAMP_MAGFILTER, m_sampler_states[1]);
-    m_device->SetSamplerState(0, D3DSAMP_MIPFILTER, m_sampler_states[2]);
-    m_device->SetSamplerState(0, D3DSAMP_ADDRESSU, m_sampler_states[3]);
-    m_device->SetSamplerState(0, D3DSAMP_ADDRESSV, m_sampler_states[4]);
-
-    RwRenderStateSet(rwRENDERSTATETEXTURERASTER, m_rw_texture_raster);
-    RwRenderStateSet(rwRENDERSTATEZTESTENABLE, m_rw_ztest);
-    RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, m_rw_zwrite);
-    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, m_rw_vertex_alpha);
-    RwRenderStateSet(rwRENDERSTATEFOGENABLE, m_rw_fog);
-    RwRenderStateSet(rwRENDERSTATESRCBLEND, m_rw_src_blend);
-    RwRenderStateSet(rwRENDERSTATEDESTBLEND, m_rw_dest_blend);
-    RwRenderStateSet(rwRENDERSTATECULLMODE, m_rw_cull_mode);
-
-    if (m_vertex_shader)
-        m_vertex_shader->Release();
-    if (m_pixel_shader)
-        m_pixel_shader->Release();
-    if (m_vertex_declaration)
-        m_vertex_declaration->Release();
-    if (m_texture)
-        m_texture->Release();
-    if (m_stream)
-        m_stream->Release();
-}
 }

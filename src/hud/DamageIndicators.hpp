@@ -3,7 +3,7 @@
 #include <d3d9.h>
 #include <vector>
 
-#include "render/Gfx.hpp"
+#include "render/Surface.hpp"
 
 class CEntity;
 class CPed;

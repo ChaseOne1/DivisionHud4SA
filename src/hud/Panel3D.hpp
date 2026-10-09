@@ -5,9 +5,13 @@
 
 #include "CVector.h"
 #include "core/Spring.hpp"
+#include "render/Surface.hpp"
 #include "render/TextRenderer.hpp"
 #include "hud/DamageIndicators.hpp"
-#include "hud/HudWidgets.hpp"
+#include "hud/widgets/AmmoPanel.hpp"
+#include "hud/widgets/Info.hpp"
+#include "hud/widgets/Vitals.hpp"
+#include "hud/widgets/WantedBar.hpp"
 
 namespace division::hud {
 

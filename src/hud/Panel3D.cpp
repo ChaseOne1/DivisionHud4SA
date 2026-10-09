@@ -3,7 +3,6 @@
 #include "common.h"
 #include "CPed.h"
 #include "CCamera.h"
-#include "CTimer.h"
 #include "CSprite.h"
 #include "CWorld.h"
 #include "ePedBones.h"
@@ -15,28 +14,24 @@
 
 #include "hud/Panel3D.hpp"
 #include "core/Config.hpp"
-#include "hud/Layout.hpp"
-#include "render/Gfx.hpp"
-#include "hud/HudWidgets.hpp"
+#include "core/Math.hpp"
+#include "core/Animation.hpp"
+#include "hud/widgets/Layout.hpp"
+#include "hud/widgets/PanelFrame.hpp"
+#include "render/Pipeline.hpp"
+#include "render/Primitives.hpp"
+#include "render/Shader.hpp"
+#include "render/Surface.hpp"
 
 namespace division::hud {
 using namespace render;
 
 namespace {
-    constexpr float TIME_STEP_TO_SECONDS = 0.02f;
-    float const PI_F = static_cast<float>(PI);
+    using core::PI_F;
+    using core::WrapAngle;
 
     CVector CameraRight() { return TheCamera.m_mCameraMatrix.GetRight(); }
     CVector CameraForward() { return TheCamera.m_mCameraMatrix.GetForward(); }
-
-    float WrapAngle(float angle)
-    {
-        while (angle > PI_F)
-            angle -= 2.0f * PI_F;
-        while (angle < -PI_F)
-            angle += 2.0f * PI_F;
-        return angle;
-    }
 
     bool ProjectToScreen(CVector const& world, ScreenPoint& out)
     {
@@ -101,15 +96,13 @@ void Panel3D::Update()
     CPed* ped = FindPlayerPed(0);
     bool const in_vehicle = FindPlayerVehicle(0, false) != nullptr;
 
-    float dt = CTimer::ms_fTimeStep * TIME_STEP_TO_SECONDS;
-    if (!(dt > 0.0f))
-        dt = 1.0f / 60.0f;
+    float dt = core::FrameDeltaSeconds();
 
     bool const aiming = ped && !in_vehicle && IsPlayerAiming(ped);
     m_aiming = aiming;
 
     float const ads_target = aiming ? 1.0f : 0.0f;
-    float const ads_step = dt / std::max(0.01f, core::PanelAdsDuration);
+    float const ads_step = dt / std::max(0.01f, core::cfg.PanelAdsDuration);
     m_ads_blend = (m_ads_blend < ads_target) ? std::min(ads_target, m_ads_blend + ads_step)
                                              : std::max(ads_target, m_ads_blend - ads_step);
 
@@ -124,7 +117,7 @@ void Panel3D::Update()
             m_side = raw_side;
             m_side_initialised = true;
         } else {
-            m_side += (raw_side - m_side) * std::min(1.0f, dt * core::SideSmooth);
+            m_side += (raw_side - m_side) * std::min(1.0f, dt * core::cfg.SideSmooth);
             m_side.Normalize();
         }
 
@@ -138,12 +131,12 @@ void Panel3D::Update()
             m_forward = raw_forward;
             m_forward_initialised = true;
         } else {
-            m_forward += (raw_forward - m_forward) * std::min(1.0f, dt * core::SideSmooth);
+            m_forward += (raw_forward - m_forward) * std::min(1.0f, dt * core::cfg.SideSmooth);
             m_forward.Normalize();
         }
 
         CVector base = ped->GetPosition();
-        if (core::BoneInfluence > 0.0f && ped->m_pRwClump) {
+        if (core::cfg.BoneInfluence > 0.0f && ped->m_pRwClump) {
             RwV3d bone { };
             ped->GetBonePosition(bone, BONE_UPPERTORSO, false);
             CVector const bone_offset = CVector(bone) - base;
@@ -151,19 +144,19 @@ void Panel3D::Update()
                 m_bone_neutral = bone_offset;
                 m_bone_neutral_set = true;
             }
-            base += (bone_offset - m_bone_neutral) * core::BoneInfluence;
+            base += (bone_offset - m_bone_neutral) * core::cfg.BoneInfluence;
         }
 
         CVector target = base;
-        target += m_side * core::AnchorOffsetRight;
-        target += m_forward * core::AnchorOffsetForward;
-        target += CVector(0.0f, 0.0f, 1.0f) * core::AnchorOffsetUp;
+        target += m_side * core::cfg.AnchorOffsetRight;
+        target += m_forward * core::cfg.AnchorOffsetForward;
+        target += CVector(0.0f, 0.0f, 1.0f) * core::cfg.AnchorOffsetUp;
 
         if (!m_target_initialised) {
             m_target = target;
             m_target_initialised = true;
         } else {
-            m_target += (target - m_target) * std::min(1.0f, dt * core::AnchorSmooth);
+            m_target += (target - m_target) * std::min(1.0f, dt * core::cfg.AnchorSmooth);
         }
 
         if (!m_initialised) {
@@ -171,7 +164,7 @@ void Panel3D::Update()
             m_velocity = CVector(0.0f);
             m_initialised = true;
         } else {
-            core::Damp(m_position, m_velocity, m_target, core::SpringOmega, dt);
+            core::Damp(m_position, m_velocity, m_target, core::cfg.SpringOmega, dt);
         }
 
         float const heading = ped->GetHeading();
@@ -181,7 +174,7 @@ void Panel3D::Update()
         m_prev_heading = heading;
         m_has_prev_heading = true;
 
-        float const target_roll = std::clamp(-turn * core::TurnTiltGain, -core::TurnTiltMax, core::TurnTiltMax);
+        float const target_roll = std::clamp(-turn * core::cfg.TurnTiltGain, -core::cfg.TurnTiltMax, core::cfg.TurnTiltMax);
         m_roll += (target_roll - m_roll) * std::min(1.0f, dt * 450.0f);
 
         CVector forward = CameraForward();
@@ -192,25 +185,25 @@ void Panel3D::Update()
             m_yaw = raw_yaw;
             m_yaw_initialised = true;
         } else {
-            m_yaw += WrapAngle(raw_yaw - m_yaw) * std::min(1.0f, dt * core::YawSmooth);
+            m_yaw += WrapAngle(raw_yaw - m_yaw) * std::min(1.0f, dt * core::cfg.YawSmooth);
         }
 
         float const camera_pitch = std::asin(std::clamp(forward.z, -1.0f, 1.0f));
-        float const excess = std::max(0.0f, std::fabs(camera_pitch) - core::PitchDeadzone);
-        float const target_pitch = core::BasePitch - std::copysign(excess, camera_pitch);
+        float const excess = std::max(0.0f, std::fabs(camera_pitch) - core::cfg.PitchDeadzone);
+        float const target_pitch = core::cfg.BasePitch - std::copysign(excess, camera_pitch);
 
         if (!m_pitch_initialised) {
             m_pitch = target_pitch;
             m_pitch_initialised = true;
         } else {
-            m_pitch += (target_pitch - m_pitch) * std::min(1.0f, dt * core::PitchSmooth);
+            m_pitch += (target_pitch - m_pitch) * std::min(1.0f, dt * core::cfg.PitchSmooth);
         }
 
-        m_bob_phase += dt * core::BobOmega;
+        m_bob_phase += dt * core::cfg.BobOmega;
     }
 
     float const target_alpha = (ped && !in_vehicle) ? 1.0f : 0.0f;
-    float const rate = (target_alpha > m_alpha) ? core::FadeInSpeed : core::FadeOutSpeed;
+    float const rate = (target_alpha > m_alpha) ? core::cfg.FadeInSpeed : core::cfg.FadeOutSpeed;
     m_alpha += (target_alpha - m_alpha) * std::min(1.0f, dt * rate);
 
     m_vitals.Update(ped, dt);
@@ -234,10 +227,10 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
         CVector const& camera_position = TheCamera.GetPosition();
         float const distance = CVector::Distance(m_position, camera_position);
         float near_fade = 1.0f;
-        if (distance < core::FadeNearDist)
+        if (distance < core::cfg.FadeNearDist)
             near_fade = 0.0f;
-        else if (distance < core::FadeNearFull)
-            near_fade = (distance - core::FadeNearDist) / (core::FadeNearFull - core::FadeNearDist);
+        else if (distance < core::cfg.FadeNearFull)
+            near_fade = (distance - core::cfg.FadeNearDist) / (core::cfg.FadeNearFull - core::cfg.FadeNearDist);
         near_fade += (1.0f - near_fade) * m_ads_blend;
         if (near_fade < 0.01f) return;
         alpha *= near_fade;
@@ -247,7 +240,7 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     int const screen_height = RsGlobal.maximumHeight;
     if (screen_width <= 0 || screen_height <= 0) return;
 
-    float const yaw = m_yaw + PI_F + core::BaseYawOffset;
+    float const yaw = m_yaw + PI_F + core::cfg.BaseYawOffset;
     float const pitch = m_pitch;
 
     CVector normal(std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch));
@@ -269,25 +262,25 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     }
 
     CVector center = m_position;
-    center.z += std::sin(m_bob_phase) * core::BobAmplitude;
+    center.z += std::sin(m_bob_phase) * core::cfg.BobAmplitude;
 
-    PanelRects const panels = Compute(core::PanelColumnLength, core::PanelSkillHeight, core::PanelGap);
-    AmmoZones const ammo_zones = ComputeAmmoZones(panels.ammo, core::PanelAmmoSplit, core::PanelAmmoClipSplit);
+    PanelRects const panels = Compute(core::cfg.PanelColumnLength, core::cfg.PanelSkillHeight, core::cfg.PanelGap);
+    AmmoZones const ammo_zones = ComputeAmmoZones(panels.ammo, core::cfg.PanelAmmoSplit, core::cfg.PanelAmmoClipSplit);
 
     float const screen_w = static_cast<float>(screen_width);
     float const screen_h = static_cast<float>(screen_height);
 
     auto to_world = [&](float nx, float ny) {
         CVector point = center;
-        point += right * ((nx - 0.5f) * core::PanelLength);
-        point += up * ((ny - 0.5f) * core::PanelHeight);
+        point += right * ((nx - 0.5f) * core::cfg.PanelLength);
+        point += up * ((ny - 0.5f) * core::cfg.PanelHeight);
         return point;
     };
 
-    float const ads_width = screen_w * core::PanelAdsWidth;
-    float const ads_height = ads_width * (core::PanelHeight / std::max(core::PanelLength, 0.0001f));
-    float const ads_center_x = screen_w * core::PanelAdsCenterX;
-    float const ads_center_y = screen_h * core::PanelAdsCenterY;
+    float const ads_width = screen_w * core::cfg.PanelAdsWidth;
+    float const ads_height = ads_width * (core::cfg.PanelHeight / std::max(core::cfg.PanelLength, 0.0001f));
+    float const ads_center_x = screen_w * core::cfg.PanelAdsCenterX;
+    float const ads_center_y = screen_h * core::cfg.PanelAdsCenterY;
 
     float const corner_local[4][2] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
     ScreenPoint world_quad[4];
@@ -299,10 +292,10 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     }
 
     float const depth = ads_width * 2.0f;
-    float const cp = std::cos(core::PanelAdsPitch);
-    float const sp = std::sin(core::PanelAdsPitch);
-    float const cyaw = std::cos(core::PanelAdsYaw);
-    float const syaw = std::sin(core::PanelAdsYaw);
+    float const cp = std::cos(core::cfg.PanelAdsPitch);
+    float const sp = std::sin(core::cfg.PanelAdsPitch);
+    float const cyaw = std::cos(core::cfg.PanelAdsYaw);
+    float const syaw = std::sin(core::cfg.PanelAdsYaw);
     ScreenPoint ads_quad[4];
     for (int i = 0; i < 4; ++i) {
         float const x = (corner_local[i][0] - 0.5f) * ads_width;
@@ -337,41 +330,7 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
 
     DeviceStateGuard guard(device);
 
-    device->SetVertexShader(nullptr);
-    device->SetPixelShader(nullptr);
-    device->SetVertexDeclaration(nullptr);
-    device->SetFVF(VERTEX_FVF);
-    device->SetStreamSource(0, nullptr, 0, 0);
-    device->SetTexture(0, nullptr);
-
-    device->SetRenderState(D3DRS_ZENABLE, FALSE);
-    device->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-    device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    device->SetRenderState(D3DRS_LIGHTING, FALSE);
-    device->SetRenderState(D3DRS_FOGENABLE, FALSE);
-    device->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-    device->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-    // Post-effects (e.g. the fire heat-haze stencil mask) can leave the stencil test and
-    // colour-write mask in a state that silently discards our screen-space geometry.
-    // We never use either, so force them back to a known-good state.
-    device->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-    device->SetRenderState(D3DRS_COLORWRITEENABLE,
-        D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-    device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-    device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-    device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-    device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-    device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-    device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-    device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-    device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-    device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-    device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+    ApplyScreenPipeline(device);
 
     ScreenPoint ammo_quad[4], skill_quad[4], resource_quad[4];
     ProjectRect(surface, panels.ammo, ammo_quad);
@@ -393,9 +352,9 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     draw_backdrop(resource_quad);
 
     device->SetTexture(0, nullptr);
-    D3DCOLOR const line_color = D3DCOLOR_COLORVALUE(1.0f, 1.0f, 1.0f, alpha * core::PanelLineAlpha);
-    D3DCOLOR const bottom_color = D3DCOLOR_COLORVALUE(1.0f, 1.0f, 1.0f, alpha * core::PanelLineAlphaBottom);
-    float const line_thickness = core::PanelLineWidth;
+    D3DCOLOR const line_color = D3DCOLOR_COLORVALUE(1.0f, 1.0f, 1.0f, alpha * core::cfg.PanelLineAlpha);
+    D3DCOLOR const bottom_color = D3DCOLOR_COLORVALUE(1.0f, 1.0f, 1.0f, alpha * core::cfg.PanelLineAlphaBottom);
+    float const line_thickness = core::cfg.PanelLineWidth;
 
     if (!m_line_shader)
         m_line_shader = CreateLineShader(device);

@@ -3,183 +3,191 @@
 #include <d3d9.h>
 
 namespace division::core {
-inline float AnchorOffsetRight = -1.00f;
-inline float AnchorOffsetUp = 0.15f;
-inline float AnchorOffsetForward = 0.15f;
 
-inline float BoneInfluence = 0.3f;
+// Runtime tuning knobs, loaded from DivisionHud4SA/config/DivisionHud4SA.ini.
+// The single source of truth for key names, defaults and INI sections lives in
+// Config.cpp's descriptor table; this struct is just the store. Member names match
+// the pre-table identifiers so call sites read naturally as `core::cfg.field`.
+// Defaults below mirror the shipped INI values (tuned in-game); keep them in sync
+// with DivisionHud4SA/config/DivisionHud4SA.ini.
+struct Config {
+    // [anchor]  Card position relative to the player's feet/orientation.
+    float AnchorOffsetRight = -1.00f;
+    float AnchorOffsetUp = 0.15f;
+    float AnchorOffsetForward = 0.15f;
 
-inline float PanelLength = 0.80f;
-inline float PanelHeight = 0.28f;
+    // [follow]  How the card tracks the camera/player (smoothing, spring, bob, tilt, fade).
+    float BoneInfluence = 0.3f;
+    float SpringOmega = 182.0f;
+    float AnchorSmooth = 400.0f;
+    float SideSmooth = 400.0f;
+    float YawSmooth = 450.0f;
+    float PitchSmooth = 450.0f;
+    float PitchDeadzone = 0.8f;
+    float BaseYawOffset = -0.40f;
+    float BasePitch = -0.03f;
+    float BobAmplitude = 0.0f;
+    float BobOmega = 110.0f;
+    float TurnTiltGain = 0.00056f;
+    float TurnTiltMax = 0.10f;
+    float FadeInSpeed = 350.0f;
+    float FadeOutSpeed = 500.0f;
+    float FadeNearDist = 1.20f;
+    float FadeNearFull = 1.80f;
 
-inline float PanelColumnLength = 0.48f;
-inline float PanelSkillHeight = 0.49f;
-inline float PanelGap = 0.01f;
-inline float PanelAmmoSplit = 0.65f;
-inline float PanelAmmoClipSplit = 0.60f;
-inline float PanelAmmoClipSize = 1.1f;
-inline float PanelAmmoReserveSize = 1.1f;
-inline float PanelAmmoSideSize = 0.80f;
-inline float PanelAmmoClipOffsetX = 0.0f;
-inline float PanelAmmoClipOffsetY = 0.0f;
-inline float PanelAmmoReserveOffsetX = 0.0f;
-inline float PanelAmmoReserveOffsetY = 0.05f;
-inline float PanelAmmoPrevOffsetX = 0.0f;
-inline float PanelAmmoPrevOffsetY = 0.0f;
-inline float PanelAmmoNextOffsetX = 0.0f;
-inline float PanelAmmoNextOffsetY = 0.0f;
-inline D3DCOLOR PanelAmmoClipColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline D3DCOLOR PanelAmmoReserveColor = D3DCOLOR_ARGB(119, 255, 255, 255);
-inline D3DCOLOR PanelAmmoSideColor = D3DCOLOR_ARGB(204, 255, 255, 255);
-inline D3DCOLOR PanelAmmoShadowColor = D3DCOLOR_ARGB(68, 0, 0, 0);
-inline float PanelAmmoShadowOffset = 2.0f;
-// Ammo panel animation.
-inline float PanelAmmoClipPop = 0.10f;
-inline float PanelAmmoFirePop = 0.06f;
-inline float PanelAmmoFirePopDecay = 6.0f;
-inline float PanelAmmoReloadTransition = 0.25f;
-inline D3DCOLOR PanelAmmoSideReloadColor = D3DCOLOR_ARGB(85, 255, 255, 255);
+    // [panel]  Card proportions and outline.
+    float PanelLength = 0.80f;
+    float PanelHeight = 0.28f;
+    float PanelColumnLength = 0.48f;
+    float PanelSkillHeight = 0.49f;
+    float PanelGap = 0.01f;
+    float PanelLineWidth = 1.0f;
+    float PanelLineAlpha = 0.8f;
+    float PanelLineAlphaBottom = 0.2f;
 
-// Weapon-switch preview row (screen-space, top-centre). Shown briefly after the
-// selected weapon slot changes; every occupied slot is listed, cyclically, up to
-// five panels with the current weapon centre-highlighted.
-inline float WeaponPreviewCenterX = 0.5f;
-inline float WeaponPreviewCenterY = 0.16f;
-inline int WeaponPreviewMaxCount = 5;           // max panels shown (1..5)
-// Icon size knob: drawn icon height as a fraction of the screen height. The panel
-// height/width and the ammo row are derived from it, so this scales the whole row.
-inline float WeaponPreviewIconHeight = 0.05f;
-inline float WeaponPreviewPanelAspect = 2.4f;   // panel width / panel height
-inline float WeaponPreviewIconPad = 0.18f;      // vertical pad inside icon region / icon height
-inline float WeaponPreviewAmmoRatio = 0.55f;    // ammo region height / icon height
-inline float WeaponPreviewGap = 0.006f;         // gap between panels (fraction of screen width)
-inline float WeaponPreviewMaxWidth = 0.72f;     // row width cap; row scaled down if exceeded
-inline float WeaponPreviewActiveScale = 1.12f;  // current panel uniform enlargement
-inline D3DCOLOR WeaponPreviewActiveColor = D3DCOLOR_ARGB(217, 232, 135, 26);
-inline D3DCOLOR WeaponPreviewLineColor = D3DCOLOR_ARGB(204, 255, 255, 255);
-inline float WeaponPreviewLineWidth = 1.0f;
-inline D3DCOLOR WeaponPreviewTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline float WeaponPreviewTextSize = 0.75f;     // fraction of the ammo region height
-inline float WeaponPreviewHold = 1.5f;          // seconds visible after a switch
-inline float WeaponPreviewFadeIn = 0.15f;       // seconds
-inline float WeaponPreviewFadeOut = 0.30f;      // seconds
-inline float WeaponPreviewSlideSpeed = 4.0f;    // row slide rate (1/seconds)
-inline float WeaponPreviewScaleSpeed = 8.0f;    // (reserved) icon grow/shrink rate
+    // [ads]  Aim-down-sights: the card is blended onto a fixed screen-space quad.
+    float PanelAdsDuration = 0.11f;
+    float PanelAdsWidth = 0.17f;
+    float PanelAdsCenterX = 0.68f;
+    float PanelAdsCenterY = 0.70f;
+    float PanelAdsYaw = 0.00f;
+    float PanelAdsPitch = 0.09f;
 
-inline float PanelVitalsOffsetY = 0.04f;
-inline float PanelVitalsGap = 0.05f;
-inline float PanelVitalsLength = 1.0f;
-inline float PanelVitalsThicknessHealth = 0.06f;
-inline float PanelVitalsThicknessArmor = 0.15f;
-inline float PanelVitalsThicknessStamina = 0.05f;
-inline D3DCOLOR PanelVitalsHealthColor = D3DCOLOR_ARGB(255, 232, 135, 26);
-inline D3DCOLOR PanelVitalsHealthTrackColor = D3DCOLOR_ARGB(68, 0, 0, 0);
-inline D3DCOLOR PanelVitalsArmorColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline D3DCOLOR PanelVitalsStaminaColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline D3DCOLOR PanelVitalsBreathColor = D3DCOLOR_ARGB(255, 46, 155, 255);
-inline float PanelVitalsBreathHold = 1.0f;
-inline D3DCOLOR PanelVitalsCursorColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline float PanelVitalsCursorWidth = 0.004f;
-inline float PanelVitalsCursorScale = 1.6f;
-inline float PanelVitalsCursorDotGap = 0.012f;
-inline float PanelVitalsArmorUnit = 3.0f;
-inline float PanelVitalsArmorGap = 0.008f;
-inline float PanelVitalsStaminaFadeIn = 0.09f;
-inline float PanelVitalsStaminaFadeOut = 0.09f;
-inline float PanelVitalsStaminaHold = 1.0f;
-inline float PanelVitalsMoveFade = 0.18f;   // stack reflow / bar appear-disappear transition
-// Health damage indicator (red trailing bar) and change pulse.
-inline D3DCOLOR PanelVitalsHealthChipColor = D3DCOLOR_ARGB(255, 210, 45, 45);
-inline float PanelVitalsHealthChipHold = 0.5f;
-inline float PanelVitalsHealthChipSpeed = 0.8f;
-inline float PanelVitalsHealthPulseHold = 0.15f;
-inline float PanelVitalsHealthPulseScale = 0.6f;
-inline float PanelVitalsHealthPulseFadeIn = 0.05f;
-inline float PanelVitalsHealthPulseFadeOut = 0.25f;
+    // [ammo]  Magazine / reserve / prev / next numbers on the left card.
+    float PanelAmmoSplit = 0.65f;
+    float PanelAmmoClipSplit = 0.60f;
+    float PanelAmmoClipSize = 1.1f;
+    float PanelAmmoReserveSize = 1.1f;
+    float PanelAmmoSideSize = 0.80f;
+    float PanelAmmoClipOffsetX = 0.0f;
+    float PanelAmmoClipOffsetY = 0.0f;
+    float PanelAmmoReserveOffsetX = 0.0f;
+    float PanelAmmoReserveOffsetY = 0.05f;
+    float PanelAmmoPrevOffsetX = 0.0f;
+    float PanelAmmoPrevOffsetY = 0.0f;
+    float PanelAmmoNextOffsetX = 0.0f;
+    float PanelAmmoNextOffsetY = 0.0f;
+    D3DCOLOR PanelAmmoClipColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    D3DCOLOR PanelAmmoReserveColor = D3DCOLOR_ARGB(119, 255, 255, 255);
+    D3DCOLOR PanelAmmoSideColor = D3DCOLOR_ARGB(204, 255, 255, 255);
+    D3DCOLOR PanelAmmoShadowColor = D3DCOLOR_ARGB(68, 0, 0, 0);
+    float PanelAmmoShadowOffset = 2.5f;
+    // Ammo panel animation.
+    float PanelAmmoClipPop = 0.03f;
+    float PanelAmmoFirePop = 0.05f;
+    float PanelAmmoFirePopDecay = 8.0f;
+    float PanelAmmoReloadTransition = 0.15f;
+    D3DCOLOR PanelAmmoSideReloadColor = D3DCOLOR_ARGB(85, 255, 255, 255);
 
-// Damage source direction indicators (screen-space around the crosshair). Arc sizes are in degrees.
-inline float PanelDamageCenterX = 0.5f;
-inline float PanelDamageCenterY = 0.5f;
-inline float PanelDamageRadius = 90.0f;
-inline float PanelDamageArcThickness = 5.0f;
-inline float PanelDamageArcMaxDeg = 90.0f;
-inline float PanelDamageArcMinDeg = 12.0f;
-inline float PanelDamageArcGainDeg = 10.0f;
-inline float PanelDamageArcHold = 0.6f;
-inline float PanelDamageArcShrinkDeg = 60.0f;
-inline float PanelDamageForget = 3.0f;
-inline float PanelDamagePointerSize = 14.0f;
-inline float PanelDamagePointerWidth = 0.4f;   // triangle base width as a fraction of its length
-inline D3DCOLOR PanelDamageColorArmor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline D3DCOLOR PanelDamageColorHealth = D3DCOLOR_ARGB(255, 226, 45, 45);
-inline int PanelDamageMaxSources = 8;
+    // [weapon_preview]  Weapon-switch preview row (screen-space, top-centre).
+    float WeaponPreviewCenterX = 0.5f;
+    float WeaponPreviewCenterY = 0.16f;
+    int WeaponPreviewMaxCount = 3;            // max panels shown (1..5)
+    float WeaponPreviewIconHeight = 0.045f;
+    float WeaponPreviewPanelAspect = 2.4f;
+    float WeaponPreviewIconPad = 0.18f;
+    float WeaponPreviewAmmoRatio = 0.55f;
+    float WeaponPreviewGap = 0.006f;
+    float WeaponPreviewMaxWidth = 0.72f;
+    float WeaponPreviewActiveScale = 1.12f;
+    D3DCOLOR WeaponPreviewActiveColor = D3DCOLOR_ARGB(255, 232, 135, 26);
+    D3DCOLOR WeaponPreviewLineColor = D3DCOLOR_ARGB(204, 255, 255, 255);
+    float WeaponPreviewLineWidth = 1.0f;
+    D3DCOLOR WeaponPreviewTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    float WeaponPreviewTextSize = 0.85f;
+    float WeaponPreviewHold = 0.9f;
+    float WeaponPreviewFadeIn = 0.15f;
+    float WeaponPreviewFadeOut = 0.25f;
+    float WeaponPreviewSlideSpeed = 4.0f;
 
-inline float PanelHudTextSize = 0.6f;
-inline float PanelHudIconSize = 0.5f;
-inline D3DCOLOR PanelHudTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline D3DCOLOR PanelHudIconColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline D3DCOLOR PanelHudTextShadowColor = D3DCOLOR_ARGB(68, 0, 0, 0);
-inline float PanelHudTextShadowOffset = 2.0f;
-inline int PanelMoneyDigits = 10;
-inline float PanelSkillIconX = 0.05f;
-inline float PanelSkillValueX = 0.17f;
-inline float PanelClockIconX = 0.1f;
-inline float PanelClockValueX = 0.22f;
-inline float PanelWantedIconX = 0.68f;
-inline float PanelWantedValueX = 0.82f;
-// Wanted-tier progress overlay (fills left-to-right as chaos grows; the whole
-// wanted area fades out and a highlight sweeps across the filled part).
-inline float PanelWantedBarX0 = 0.62f;                              // start (fraction of resource panel width)
-inline float PanelWantedBarX1 = 1.0f;                               // end
-inline D3DCOLOR PanelWantedBarColor = D3DCOLOR_ARGB(0x33, 255, 255, 255); // fill mask
-inline float PanelWantedBarSpeed = 8.0f;                            // fill smoothing rate (1/seconds)
-inline float PanelWantedBreath = 0.7f;                              // whole-area breathing tint strength (0..1)
-inline D3DCOLOR PanelWantedWaveColor = D3DCOLOR_ARGB(0x55, 255, 255, 255);
-inline float PanelWantedWaveWidth = 0.1f;                           // sweep leading-edge softness (fraction of area)
-inline float PanelWantedWaveSweep = 0.6f;                           // seconds for one sweep
-inline float PanelWantedWaveFade = 0.3f;                            // seconds to fade the highlight out
-inline float PanelWantedWaveInterval = 2.0f;                        // seconds between sweeps
-// "Star gained" flash: the wanted area turns this colour, then fades over the duration.
-inline D3DCOLOR PanelWantedFullColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-inline float PanelWantedFullDuration = 0.25f;
-inline float PanelLineWidth = 1.0f;
-inline float PanelLineAlpha = 0.8f;
-inline float PanelLineAlphaBottom = 0.2f;
-inline float PanelAdsDuration = 0.11f;
-inline float PanelAdsWidth = 0.17f;
-inline float PanelAdsCenterX = 0.68f;
-inline float PanelAdsCenterY = 0.70f;
-inline float PanelAdsYaw = -0.05f;
-inline float PanelAdsPitch = 0.05f;
+    // [vitals]  Health / armour / stamina / breath bars above the card.
+    float PanelVitalsOffsetY = 0.08f;
+    float PanelVitalsGap = 0.06f;
+    float PanelVitalsLength = 1.0f;
+    float PanelVitalsThicknessHealth = 0.06f;
+    float PanelVitalsThicknessArmor = 0.10f;
+    float PanelVitalsThicknessStamina = 0.05f;
+    D3DCOLOR PanelVitalsHealthColor = D3DCOLOR_ARGB(255, 232, 135, 26);
+    D3DCOLOR PanelVitalsHealthTrackColor = D3DCOLOR_ARGB(68, 0, 0, 0);
+    D3DCOLOR PanelVitalsArmorColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    D3DCOLOR PanelVitalsStaminaColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    D3DCOLOR PanelVitalsBreathColor = D3DCOLOR_ARGB(255, 46, 155, 255);
+    float PanelVitalsBreathHold = 1.0f;
+    D3DCOLOR PanelVitalsCursorColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    float PanelVitalsCursorWidth = 0.006f;
+    float PanelVitalsCursorScale = 1.4f;
+    float PanelVitalsCursorDotGap = 0.02f;
+    float PanelVitalsArmorUnit = 3.0f;
+    float PanelVitalsArmorGap = 0.008f;
+    float PanelVitalsStaminaFadeIn = 0.09f;
+    float PanelVitalsStaminaFadeOut = 0.09f;
+    float PanelVitalsStaminaHold = 1.0f;
+    float PanelVitalsMoveFade = 0.18f;   // stack reflow / bar appear-disappear transition
+    // Health damage indicator (red trailing bar) and change pulse.
+    D3DCOLOR PanelVitalsHealthChipColor = D3DCOLOR_ARGB(255, 210, 45, 45);
+    float PanelVitalsHealthChipHold = 1.0f;
+    float PanelVitalsHealthChipSpeed = 0.5f;
+    float PanelVitalsHealthPulseHold = 2.0f;
+    float PanelVitalsHealthPulseScale = 1.1f;
+    float PanelVitalsHealthPulseFadeIn = 0.05f;
+    float PanelVitalsHealthPulseFadeOut = 0.25f;
 
-inline float BaseYawOffset = -0.40f;
-inline float BasePitch = -0.03f;
-inline float PitchDeadzone = 0.8f;
-inline float PitchSmooth = 450.0f;
-inline float YawSmooth = 450.0f;
-inline float SideSmooth = 400.0f;
+    // [damage]  Damage-source direction indicators around the crosshair.
+    float PanelDamageCenterX = 0.5f;
+    float PanelDamageCenterY = 0.5f;
+    float PanelDamageRadius = 90.0f;
+    float PanelDamageArcThickness = 10.0f;
+    float PanelDamageArcMaxDeg = 90.0f;
+    float PanelDamageArcMinDeg = 23.0f;
+    float PanelDamageArcGainDeg = 10.0f;
+    float PanelDamageArcHold = 1.0f;
+    float PanelDamageArcShrinkDeg = 45.0f;
+    float PanelDamageForget = 3.0f;
+    float PanelDamagePointerSize = 33.0f;
+    float PanelDamagePointerWidth = 0.6f;
+    D3DCOLOR PanelDamageColorArmor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    D3DCOLOR PanelDamageColorHealth = D3DCOLOR_ARGB(255, 226, 45, 45);
+    int PanelDamageMaxSources = 8;
 
-inline float SpringOmega = 182.0f;
+    // [hud]  Info panel text/icons (money, clock, wanted count).
+    float PanelHudTextSize = 0.6f;
+    float PanelHudIconSize = 0.5f;
+    D3DCOLOR PanelHudTextColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    D3DCOLOR PanelHudIconColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    D3DCOLOR PanelHudTextShadowColor = D3DCOLOR_ARGB(68, 0, 0, 0);
+    float PanelHudTextShadowOffset = 2.5f;
+    int PanelMoneyDigits = 10;
+    float PanelSkillIconX = 0.05f;
+    float PanelSkillValueX = 0.17f;
+    float PanelClockIconX = 0.1f;
+    float PanelClockValueX = 0.22f;
+    float PanelWantedIconX = 0.68f;
+    float PanelWantedValueX = 0.82f;
 
-inline float AnchorSmooth = 400.0f;
+    // [wanted]  Wanted-tier progress overlay on the resource card.
+    float PanelWantedBarX0 = 0.62f;
+    float PanelWantedBarX1 = 1.0f;
+    D3DCOLOR PanelWantedBarColor = D3DCOLOR_ARGB(0x33, 255, 255, 255); // fill mask
+    float PanelWantedBarSpeed = 10.0f;
+    float PanelWantedBreath = 0.7f;
+    D3DCOLOR PanelWantedWaveColor = D3DCOLOR_ARGB(0x55, 255, 255, 255);
+    float PanelWantedWaveWidth = 0.1f;
+    float PanelWantedWaveSweep = 0.6f;
+    float PanelWantedWaveFade = 0.3f;
+    float PanelWantedWaveInterval = 1.0f;
+    // "Star gained" flash: the wanted area turns this colour, then fades over the duration.
+    D3DCOLOR PanelWantedFullColor = D3DCOLOR_ARGB(255, 255, 255, 255);
+    float PanelWantedFullDuration = 0.25f;
 
-inline float BobAmplitude = 0.0f;
-inline float BobOmega = 110.0f;
+    // [blur]  Shared full-screen blur behind the cards.
+    float BlurSpacing = 2.0f;
+    int BlurIterations = 2;
+    float BlurSaturation = 1.0f;
+};
 
-inline float TurnTiltGain = 0.00056f;
-inline float TurnTiltMax = 0.10f;
-
-inline float FadeInSpeed = 350.0f;
-inline float FadeOutSpeed = 500.0f;
-
-inline float FadeNearDist = 1.20f;
-inline float FadeNearFull = 1.80f;
-
-inline float BlurSpacing = 2.0f;
-inline int BlurIterations = 2;
-inline float BlurSaturation = 1.0f;
+// The one config instance; read-only after load unless the INI changed on disk.
+inline Config cfg;
 
 void Load();
-
 void Update();
 }

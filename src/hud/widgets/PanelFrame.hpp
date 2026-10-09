@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/Gfx.hpp"
+#include "render/Surface.hpp"
 
 namespace division::hud {
 

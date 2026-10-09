@@ -12,32 +12,27 @@
 #include "TxdDef.h"
 #include "CKeyGen.h"
 #include "CHud.h"
-#include "CTimer.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <type_traits>
 
 #include "core/Config.hpp"
-#include "render/Gfx.hpp"
+#include "core/Animation.hpp"
+#include "core/GameOffsets.hpp"
+#include "render/Pipeline.hpp"
+#include "render/Primitives.hpp"
+#include "render/Shader.hpp"
+#include "render/Surface.hpp"
 
 namespace division::hud {
 using namespace render;
 
 namespace {
-    constexpr float TIME_STEP_TO_SECONDS = 0.02f;
-    constexpr float MIN_FADE_DURATION = 0.02f;
-    constexpr float MAX_FADE_STEP = 0.5f;
-
-    float AdvanceFade(float alpha, float target, float dt, float fade_in, float fade_out)
-    {
-        float const fade = (alpha < target) ? std::max(MIN_FADE_DURATION, fade_in) : std::max(MIN_FADE_DURATION, fade_out);
-        float const step = std::min(MAX_FADE_STEP, dt / fade);
-        if (alpha < target) return std::min(1.0f, alpha + step);
-        if (alpha > target) return std::max(0.0f, alpha - step);
-        return alpha;
-    }
+    // Tied to the SDK's CPed::m_aWeapons array rather than a hard-coded literal.
+    constexpr int WEAPON_SLOT_COUNT = std::extent_v<decltype(CPed::m_aWeapons)>;
 
     bool IsUsableSlot(CPed* ped, int slot)
     {
@@ -61,7 +56,7 @@ namespace {
         uintptr_t const type = raster->cType & rwRASTERTYPEMASK;
         if (type != rwRASTERTYPETEXTURE && type != rwRASTERTYPECAMERATEXTURE && type != 0)
             return nullptr;
-        uintptr_t const offset = *reinterpret_cast<uintptr_t const*>(0xB4E9E0);
+        uintptr_t const offset = *reinterpret_cast<uintptr_t const*>(core::RASTER_TEXTURE_OFFSET_ADDR);
         if (offset == 0) return nullptr;
         return *reinterpret_cast<IDirect3DTexture9**>(reinterpret_cast<char*>(raster) + offset);
     }
@@ -122,7 +117,7 @@ namespace {
         DrawTexturedQuad(device, quad, uv, D3DCOLOR_COLORVALUE(1.0f, 1.0f, 1.0f, alpha));
     }
 
-    void DrawCenteredString(IDirect3DDevice9* device, TextRenderer& text, std::string const& str, float cx,
+    void DrawCenteredString(IDirect3DDevice9* device, TextRenderer& text, std::string_view str, float cx,
         float cy, float max_w, float max_h, float size_fraction, D3DCOLOR color)
     {
         int tex_w = 0;
@@ -155,9 +150,7 @@ void WeaponPreview::Update()
     CPed* ped = FindPlayerPed(0);
     bool const in_vehicle = FindPlayerVehicle(0, false) != nullptr;
 
-    float dt = CTimer::ms_fTimeStep * TIME_STEP_TO_SECONDS;
-    if (!(dt > 0.0f))
-        dt = 1.0f / 60.0f;
+    float dt = core::FrameDeltaSeconds();
 
     bool const eligible = ped && !in_vehicle;
     if (eligible) {
@@ -166,7 +159,7 @@ void WeaponPreview::Update()
             m_has_prev_slot = true;
         } else if (static_cast<int>(ped->m_nSelectedWepSlot) != m_prev_slot) {
             m_prev_slot = ped->m_nSelectedWepSlot;
-            m_hold = core::WeaponPreviewHold;
+            m_hold = core::cfg.WeaponPreviewHold;
         }
     } else {
         m_has_prev_slot = false;
@@ -174,7 +167,7 @@ void WeaponPreview::Update()
 
     m_hold = std::max(0.0f, m_hold - dt);
     float const target = (eligible && m_hold > 0.0f) ? 1.0f : 0.0f;
-    m_alpha = AdvanceFade(m_alpha, target, dt, core::WeaponPreviewFadeIn, core::WeaponPreviewFadeOut);
+    m_alpha = core::AdvanceFade(m_alpha, target, dt, core::cfg.WeaponPreviewFadeIn, core::cfg.WeaponPreviewFadeOut);
 
     // Once fully hidden, forget the animation state so the next appearance snaps in.
     if (target <= 0.0f && m_alpha < 0.01f) {
@@ -202,9 +195,9 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
     float const screen_w = static_cast<float>(screen_width);
     float const screen_h = static_cast<float>(screen_height);
 
-    int slots[13];
+    int slots[WEAPON_SLOT_COUNT];
     int n = 0;
-    for (int s = 0; s < 13; ++s) {
+    for (int s = 0; s < WEAPON_SLOT_COUNT; ++s) {
         if (IsUsableSlot(ped, s)) slots[n++] = s;
     }
     if (n < 2) return;
@@ -218,18 +211,18 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
     }
     if (current < 0) return;
 
-    int const max_count = std::clamp(core::WeaponPreviewMaxCount, 1, 5);
+    int const max_count = std::clamp(core::cfg.WeaponPreviewMaxCount, 1, 5);
     int const k = std::min(max_count, n);
 
-    float icon_h = std::max(0.005f, core::WeaponPreviewIconHeight) * screen_h;
-    float icon_region_h = icon_h * (1.0f + 2.0f * std::max(0.0f, core::WeaponPreviewIconPad));
-    float ammo_region_h = icon_h * std::max(0.0f, core::WeaponPreviewAmmoRatio);
+    float icon_h = std::max(0.005f, core::cfg.WeaponPreviewIconHeight) * screen_h;
+    float icon_region_h = icon_h * (1.0f + 2.0f * std::max(0.0f, core::cfg.WeaponPreviewIconPad));
+    float ammo_region_h = icon_h * std::max(0.0f, core::cfg.WeaponPreviewAmmoRatio);
     float panel_h = icon_region_h + ammo_region_h;
-    float panel_w = panel_h * std::max(0.2f, core::WeaponPreviewPanelAspect);
-    float gap = std::max(0.0f, core::WeaponPreviewGap) * screen_w;
+    float panel_w = panel_h * std::max(0.2f, core::cfg.WeaponPreviewPanelAspect);
+    float gap = std::max(0.0f, core::cfg.WeaponPreviewGap) * screen_w;
 
     float row_w = k * panel_w + (k - 1) * gap;
-    float const max_w = std::max(0.1f, core::WeaponPreviewMaxWidth) * screen_w;
+    float const max_w = std::max(0.1f, core::cfg.WeaponPreviewMaxWidth) * screen_w;
     if (row_w > max_w && row_w > 0.0f) {
         float const scale = max_w / row_w;
         icon_region_h *= scale;
@@ -239,18 +232,16 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
         gap *= scale;
     }
 
-    float const center_x = core::WeaponPreviewCenterX * screen_w;
-    float const center_y = core::WeaponPreviewCenterY * screen_h;
-    float const active_scale = std::max(1.0f, core::WeaponPreviewActiveScale);
+    float const center_x = core::cfg.WeaponPreviewCenterX * screen_w;
+    float const center_y = core::cfg.WeaponPreviewCenterY * screen_h;
+    float const active_scale = std::max(1.0f, core::cfg.WeaponPreviewActiveScale);
 
     float const step = panel_w + gap;
     float const panel_top = center_y - panel_h * 0.5f;
     float const panel_bottom = center_y + panel_h * 0.5f;
 
     // Frame step for the animation, clamped so a frame hitch cannot teleport the reel.
-    float dt = CTimer::ms_fTimeStep * TIME_STEP_TO_SECONDS;
-    if (!(dt > 0.0f))
-        dt = 1.0f / 60.0f;
+    float dt = core::FrameDeltaSeconds();
     if (dt > 0.05f)
         dt = 0.05f;
 
@@ -274,7 +265,7 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
         m_bias_from = m_bias;
         m_target += static_cast<float>(delta);
         m_tween = 0.0f;
-        m_tween_dur = std::max(0.08f, std::fabs(static_cast<float>(delta)) / std::max(1.0f, core::WeaponPreviewSlideSpeed));
+        m_tween_dur = std::max(0.08f, std::fabs(static_cast<float>(delta)) / std::max(1.0f, core::cfg.WeaponPreviewSlideSpeed));
         m_prev_current = current;
     }
     if (m_tween < 1.0f)
@@ -319,11 +310,11 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
     };
     constexpr float ACT_RANGE = 0.9f;
 
-    Panel panels[13];
+    Panel panels[WEAPON_SLOT_COUNT];
     int panel_count = 0;
-    for (int i = 0; i < n && panel_count < 13; ++i) {
+    for (int i = 0; i < n && panel_count < WEAPON_SLOT_COUNT; ++i) {
         int const base = static_cast<int>(std::floor((m_scroll - static_cast<float>(i)) / static_cast<float>(n))) - 1;
-        for (int mm = base; mm <= base + 2 && panel_count < 13; ++mm) {
+        for (int mm = base; mm <= base + 2 && panel_count < WEAPON_SLOT_COUNT; ++mm) {
             float const d = static_cast<float>(i + mm * n) - m_scroll;
             if (d < win_lo || d > win_hi)
                 continue;
@@ -344,38 +335,7 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
 
     DeviceStateGuard guard(device);
 
-    device->SetVertexShader(nullptr);
-    device->SetPixelShader(nullptr);
-    device->SetVertexDeclaration(nullptr);
-    device->SetFVF(VERTEX_FVF);
-    device->SetStreamSource(0, nullptr, 0, 0);
-    device->SetTexture(0, nullptr);
-
-    device->SetRenderState(D3DRS_ZENABLE, FALSE);
-    device->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-    device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    device->SetRenderState(D3DRS_LIGHTING, FALSE);
-    device->SetRenderState(D3DRS_FOGENABLE, FALSE);
-    device->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-    device->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-    device->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-    device->SetRenderState(D3DRS_COLORWRITEENABLE,
-        D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-    device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-    device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-    device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-    device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-    device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-    device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-    device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-    device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-    device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-    device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+    ApplyScreenPipeline(device);
 
     // Backdrop (blurred) and, blended by proximity to the centre, the highlight fill.
     for (int i = 0; i < panel_count; ++i) {
@@ -398,7 +358,7 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
             };
             float const uv[4][2] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f } };
             DrawTexturedQuad(device, points, uv,
-                ScaleColor(core::WeaponPreviewActiveColor, m_alpha * p.alpha * p.act));
+                ScaleColor(core::cfg.WeaponPreviewActiveColor, m_alpha * p.alpha * p.act));
         }
     }
 
@@ -406,13 +366,13 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
         m_line_shader = CreateLineShader(device);
     device->SetPixelShader(m_line_shader);
     device->SetTexture(0, nullptr);
-    float const thickness = std::max(0.5f, core::WeaponPreviewLineWidth);
+    float const thickness = std::max(0.5f, core::cfg.WeaponPreviewLineWidth);
     float const y_b = panel_bottom - ammo_region_h; // B: below the middle (icon above, ammo below)
     for (int i = 0; i < panel_count; ++i) {
         Panel const& p = panels[i];
         float const x0 = p.cx - panel_w * 0.5f;
         float const x1 = p.cx + panel_w * 0.5f;
-        D3DCOLOR const line_color = ScaleColor(core::WeaponPreviewLineColor, m_alpha * p.alpha);
+        D3DCOLOR const line_color = ScaleColor(core::cfg.WeaponPreviewLineColor, m_alpha * p.alpha);
         DrawLine(device, { x0, panel_top }, { x1, panel_top }, thickness, line_color);       // A: top
         DrawLine(device, { x0, y_b }, { x1, y_b }, thickness, line_color);                   // B
         DrawLine(device, { x0, panel_bottom }, { x1, panel_bottom }, thickness, line_color); // C: bottom
@@ -457,7 +417,7 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
         char buffer[24] { };
         std::snprintf(buffer, sizeof(buffer), "%u/%u", weapon.m_nAmmoInClip, reserve);
         DrawCenteredString(device, m_text, buffer, p.cx, text_cy, panel_w * 0.9f, ammo_region_h,
-            core::WeaponPreviewTextSize, ScaleColor(core::WeaponPreviewTextColor, m_alpha * p.alpha));
+            core::cfg.WeaponPreviewTextSize, ScaleColor(core::cfg.WeaponPreviewTextColor, m_alpha * p.alpha));
     }
 }
 

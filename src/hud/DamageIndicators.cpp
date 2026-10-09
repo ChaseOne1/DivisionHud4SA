@@ -14,12 +14,15 @@
 #include <cmath>
 
 #include "core/Config.hpp"
+#include "core/Math.hpp"
+#include "core/GameOffsets.hpp"
+#include "render/Primitives.hpp"
+#include "render/Surface.hpp"
 
 namespace division::hud {
 using namespace render;
 
 namespace {
-    constexpr float DEG = 3.14159265358979f / 180.0f;
     constexpr int MAX_HITS = 64;
 
     // Hits queued by the hook during the game phase, drained by Update in the draw phase.
@@ -48,7 +51,7 @@ void InstallDamageHook()
     if (g_register_reference)
         return;
     g_register_reference = reinterpret_cast<RegisterReferenceFn>(
-        injector::MakeCALL(0x4B5C8D, &HookRegisterReference).get<void>());
+        injector::MakeCALL(core::REGISTER_REFERENCE_CALL_ADDR, &HookRegisterReference).get<void>());
 }
 
 CEntity* DamageIndicators::Resolve(Source const& source) const
@@ -77,7 +80,7 @@ void DamageIndicators::RegisterHit(CEntity* attacker)
     }
 
     if (index < 0) {
-        int const cap = std::clamp(core::PanelDamageMaxSources, 1, MAX_SOURCES);
+        int const cap = std::clamp(core::cfg.PanelDamageMaxSources, 1, MAX_SOURCES);
         if (m_count < cap) {
             index = m_count++;
         } else {
@@ -103,9 +106,9 @@ void DamageIndicators::RegisterHit(CEntity* attacker)
         m_sources[index].z = pos.z;
     }
 
-    float const max_arc = core::PanelDamageArcMaxDeg * DEG;
-    float const min_arc = std::min(core::PanelDamageArcMinDeg * DEG, max_arc);
-    m_sources[index].arc = std::clamp(m_sources[index].arc + core::PanelDamageArcGainDeg * DEG, min_arc, max_arc);
+    float const max_arc = core::cfg.PanelDamageArcMaxDeg * core::DEG_TO_RAD;
+    float const min_arc = std::min(core::cfg.PanelDamageArcMinDeg * core::DEG_TO_RAD, max_arc);
+    m_sources[index].arc = std::clamp(m_sources[index].arc + core::cfg.PanelDamageArcGainDeg * core::DEG_TO_RAD, min_arc, max_arc);
     m_sources[index].since = 0.0f;
 }
 
@@ -115,7 +118,7 @@ void DamageIndicators::Update(CPed* ped, float dt)
         RegisterHit(g_hits[i]);
     g_hit_count = 0;
 
-    m_color = (ped && ped->m_fArmour > 0.0f) ? core::PanelDamageColorArmor : core::PanelDamageColorHealth;
+    m_color = (ped && ped->m_fArmour > 0.0f) ? core::cfg.PanelDamageColorArmor : core::cfg.PanelDamageColorHealth;
 
     CVector forward = TheCamera.m_mCameraMatrix.GetForward();
     // SA's camera matrix stores its "right" as up x forward, which points to the camera's left;
@@ -153,9 +156,9 @@ void DamageIndicators::Update(CPed* ped, float dt)
         }
 
         source.since += dt;
-        if (source.since > core::PanelDamageArcHold)
-            source.arc = std::max(0.0f, source.arc - core::PanelDamageArcShrinkDeg * DEG * dt);
-        if (source.since > core::PanelDamageForget) {
+        if (source.since > core::cfg.PanelDamageArcHold)
+            source.arc = std::max(0.0f, source.arc - core::cfg.PanelDamageArcShrinkDeg * core::DEG_TO_RAD * dt);
+        if (source.since > core::cfg.PanelDamageForget) {
             Remove(i);
             continue;
         }
@@ -180,18 +183,18 @@ void DamageIndicators::Draw(IDirect3DDevice9* device, std::vector<BarVertex>& ve
 
     float const width = static_cast<float>(RsGlobal.maximumWidth);
     float const height = static_cast<float>(RsGlobal.maximumHeight);
-    float const cx = width * core::PanelDamageCenterX;
-    float const cy = height * core::PanelDamageCenterY;
+    float const cx = width * core::cfg.PanelDamageCenterX;
+    float const cy = height * core::cfg.PanelDamageCenterY;
     D3DCOLOR const color = ScaleColor(m_color, alpha);
 
     vertices.clear();
     for (int i = 0; i < m_count; ++i) {
         Source const& source = m_sources[i];
         // Pointer first, then arc, so the arc band covers the pointer's tail.
-        AppendPointerScreen(vertices, cx, cy, core::PanelDamageRadius, source.angle, core::PanelDamagePointerSize,
-            core::PanelDamagePointerWidth, color);
+        AppendPointerScreen(vertices, cx, cy, core::cfg.PanelDamageRadius, source.angle, core::cfg.PanelDamagePointerSize,
+            core::cfg.PanelDamagePointerWidth, color);
         if (source.arc > 0.0f)
-            AppendArcScreen(vertices, cx, cy, core::PanelDamageRadius, core::PanelDamageArcThickness, source.angle,
+            AppendArcScreen(vertices, cx, cy, core::cfg.PanelDamageRadius, core::cfg.PanelDamageArcThickness, source.angle,
                 source.arc * 0.5f, color);
     }
 
