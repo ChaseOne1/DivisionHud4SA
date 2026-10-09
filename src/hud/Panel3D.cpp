@@ -74,10 +74,13 @@ namespace {
     bool IsPlayerAiming(CPed* ped)
     {
         if (ped->bIsAimingGun) return true;
+        if (ped->m_ePedState == PEDSTATE_AIMGUN) return true;
 
-        ePedState const state = ped->m_ePedState;
-        if (state == PEDSTATE_AIMGUN || state == PEDSTATE_SNIPER_MODE || state == PEDSTATE_ROCKETLAUNCHER_MODE) return true;
-
+        // Do NOT key on PEDSTATE_SNIPER_MODE: the game reuses it as the generic
+        // "player is aiming" state for sniper / rocket launcher / HS / camera weapons
+        // (see CTaskSimplePlayerOnFoot::ProcessPlayerWeapon, which pushes 0Ch), and it
+        // is left set after the aim key is released. The camera mode below is set and
+        // cleared with the aim key, so it is the reliable exit signal.
         unsigned char const active_cam = TheCamera.m_nActiveCam;
         return IsAimMode(TheCamera.m_aCams[active_cam < 3 ? active_cam : 0].m_nMode);
     }
@@ -348,6 +351,13 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     device->SetRenderState(D3DRS_FOGENABLE, FALSE);
     device->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
     device->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+    // Post-effects (e.g. the fire heat-haze stencil mask) can leave the stencil test and
+    // colour-write mask in a state that silently discards our screen-space geometry.
+    // We never use either, so force them back to a known-good state.
+    device->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+    device->SetRenderState(D3DRS_COLORWRITEENABLE,
+        D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+    device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
     device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
     device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
     device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
@@ -363,12 +373,6 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
     device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
     device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 
-    float const tint_r = ((core::BackTint >> 16) & 0xff) / 255.0f;
-    float const tint_g = ((core::BackTint >> 8) & 0xff) / 255.0f;
-    float const tint_b = (core::BackTint & 0xff) / 255.0f;
-    float const tint_a = (((core::BackTint >> 24) & 0xff) / 255.0f) * alpha;
-    D3DCOLOR const tint = D3DCOLOR_COLORVALUE(tint_r, tint_g, tint_b, tint_a);
-
     ScreenPoint ammo_quad[4], skill_quad[4], resource_quad[4];
     ProjectRect(surface, panels.ammo, ammo_quad);
     ProjectRect(surface, panels.skill, skill_quad);
@@ -380,7 +384,7 @@ void Panel3D::Draw(IDirect3DTexture9* blurred)
             uv[i][0] = points[i].x / screen_w;
             uv[i][1] = points[i].y / screen_h;
         }
-        DrawTexturedQuad(device, points, uv, tint);
+        DrawBackdrop(device, points, uv, alpha);
     };
 
     device->SetTexture(0, blurred);

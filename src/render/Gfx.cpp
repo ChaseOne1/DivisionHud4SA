@@ -166,6 +166,34 @@ void DrawTexturedQuad(IDirect3DDevice9* device, ScreenPoint const (&points)[4], 
     device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(Vertex));
 }
 
+void DrawBackdrop(IDirect3DDevice9* device, ScreenPoint const (&points)[4], float const (&uv)[4][2],
+    float opacity)
+{
+    // Colour stage passes the blur texture through untouched (SELECTARG1), so no tint
+    // colour is multiplied in; alpha comes from the vertex diffuse (SELECTARG2).
+    device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+    device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+    device->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+
+    unsigned int const a = static_cast<unsigned int>(std::clamp(opacity, 0.0f, 1.0f) * 255.0f + 0.5f) & 0xffu;
+    Vertex vertices[4];
+    for (int i = 0; i < 4; ++i) {
+        vertices[i].x = points[i].x;
+        vertices[i].y = points[i].y;
+        vertices[i].z = 0.0f;
+        vertices[i].rhw = 1.0f;
+        vertices[i].color = D3DCOLOR_ARGB(a, 255, 255, 255); // only A is read
+        vertices[i].u = uv[i][0];
+        vertices[i].v = uv[i][1];
+    }
+    device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(Vertex));
+
+    device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+}
+
 IDirect3DPixelShader9* CreateLineShader(IDirect3DDevice9* device)
 {
     static std::string const source = LoadResourceText("DivisionHud4SA/shaders/line.hlsl",
@@ -519,6 +547,9 @@ void DeviceStateGuard::Save()
     m_device->GetRenderState(D3DRS_DESTBLEND, &m_render_states[7]);
     m_device->GetRenderState(D3DRS_ALPHATESTENABLE, &m_render_states[8]);
     m_device->GetRenderState(D3DRS_SCISSORTESTENABLE, &m_render_states[9]);
+    m_device->GetRenderState(D3DRS_STENCILENABLE, &m_render_states[10]);
+    m_device->GetRenderState(D3DRS_COLORWRITEENABLE, &m_render_states[11]);
+    m_device->GetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, &m_render_states[12]);
 
     m_device->GetTextureStageState(0, D3DTSS_COLOROP, &m_texture_stages[0]);
     m_device->GetTextureStageState(0, D3DTSS_COLORARG1, &m_texture_stages[1]);
@@ -561,6 +592,9 @@ void DeviceStateGuard::Restore()
     m_device->SetRenderState(D3DRS_DESTBLEND, m_render_states[7]);
     m_device->SetRenderState(D3DRS_ALPHATESTENABLE, m_render_states[8]);
     m_device->SetRenderState(D3DRS_SCISSORTESTENABLE, m_render_states[9]);
+    m_device->SetRenderState(D3DRS_STENCILENABLE, m_render_states[10]);
+    m_device->SetRenderState(D3DRS_COLORWRITEENABLE, m_render_states[11]);
+    m_device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, m_render_states[12]);
 
     m_device->SetTextureStageState(0, D3DTSS_COLOROP, m_texture_stages[0]);
     m_device->SetTextureStageState(0, D3DTSS_COLORARG1, m_texture_stages[1]);

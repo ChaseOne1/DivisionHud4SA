@@ -358,6 +358,10 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
     device->SetRenderState(D3DRS_FOGENABLE, FALSE);
     device->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
     device->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+    device->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+    device->SetRenderState(D3DRS_COLORWRITEENABLE,
+        D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+    device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
     device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
     device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
     device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
@@ -373,32 +377,20 @@ void WeaponPreview::Draw(IDirect3DTexture9* blurred)
     device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
     device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 
-    float const tint_r = ((core::BackTint >> 16) & 0xff) / 255.0f;
-    float const tint_g = ((core::BackTint >> 8) & 0xff) / 255.0f;
-    float const tint_b = (core::BackTint & 0xff) / 255.0f;
-    float const tint_a = (((core::BackTint >> 24) & 0xff) / 255.0f) * m_alpha;
-    D3DCOLOR const tint = D3DCOLOR_COLORVALUE(tint_r, tint_g, tint_b, tint_a);
-
-    // Triangle strip needs v1/v2 on a diagonal: tl,tr,bl,br. tl,tr,br,bl leaves a
-    // triangular hole on one side and an overlap on the other.
-    auto draw_quad = [&](float x0, float y0, float x1, float y1, D3DCOLOR color) {
-        ScreenPoint const points[4] = { { x0, y0 }, { x1, y0 }, { x0, y1 }, { x1, y1 } };
-        float const uv[4][2] = {
-            { x0 / screen_w, y0 / screen_h },
-            { x1 / screen_w, y0 / screen_h },
-            { x0 / screen_w, y1 / screen_h },
-            { x1 / screen_w, y1 / screen_h },
-        };
-        DrawTexturedQuad(device, points, uv, color);
-    };
-
     // Backdrop (blurred) and, blended by proximity to the centre, the highlight fill.
     for (int i = 0; i < panel_count; ++i) {
         Panel const& p = panels[i];
         float const x0 = p.cx - panel_w * 0.5f;
         float const x1 = p.cx + panel_w * 0.5f;
         device->SetTexture(0, blurred);
-        draw_quad(x0, panel_top, x1, panel_bottom, ScaleColor(tint, p.alpha));
+        ScreenPoint const points[4] = { { x0, panel_top }, { x1, panel_top }, { x0, panel_bottom }, { x1, panel_bottom } };
+        float const uv[4][2] = {
+            { x0 / screen_w, panel_top / screen_h },
+            { x1 / screen_w, panel_top / screen_h },
+            { x0 / screen_w, panel_bottom / screen_h },
+            { x1 / screen_w, panel_bottom / screen_h },
+        };
+        DrawBackdrop(device, points, uv, m_alpha * p.alpha);
         if (p.act > 0.001f) {
             device->SetTexture(0, nullptr);
             ScreenPoint const points[4] = {

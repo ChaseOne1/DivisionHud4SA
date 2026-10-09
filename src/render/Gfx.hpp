@@ -50,6 +50,12 @@ std::string LoadResourceText(char const* relative_path, char const* fallback);
 void DrawTexturedQuad(IDirect3DDevice9* device, ScreenPoint const (&points)[4], float const (&uv)[4][2],
     D3DCOLOR color);
 
+// Draws the panel's blurred backdrop. The blur texture's own colour is used verbatim
+// (D3DTOP_SELECTARG1) so nothing is tinted or multiplied in; `opacity` (0..1) is the
+// only parameter and just controls how much the backdrop covers the scene behind it.
+void DrawBackdrop(IDirect3DDevice9* device, ScreenPoint const (&points)[4], float const (&uv)[4][2],
+    float opacity);
+
 IDirect3DPixelShader9* CreateLineShader(IDirect3DDevice9* device);
 IDirect3DPixelShader9* CreateBarShader(IDirect3DDevice9* device);
 IDirect3DPixelShader9* CreateWaveShader(IDirect3DDevice9* device);
@@ -117,7 +123,7 @@ private:
     IDirect3DSurface9* m_render_target = nullptr;
     D3DVIEWPORT9 m_viewport { };
 
-    DWORD m_render_states[10] { };
+    DWORD m_render_states[13] { };
     DWORD m_texture_stages[6] { };
     DWORD m_sampler_states[5] { };
 };

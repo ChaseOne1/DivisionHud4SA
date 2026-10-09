@@ -201,8 +201,7 @@ namespace {
                 "fade_near_full = 1.80\n"
                 "blur_spacing = 2.0\n"
                 "blur_iterations = 2\n"
-                "blur_saturation = 1.0\n"
-                "back_tint = FFFFFFFF\n";
+                "blur_saturation = 1.0\n";
 
         CreateDirectoryA(PLUGIN_PATH("DivisionHud4SA"), nullptr);
         CreateDirectoryA(PLUGIN_PATH("DivisionHud4SA/config"), nullptr);
@@ -386,8 +385,6 @@ void Load()
     BlurSpacing = ReadFloat("blur_spacing", BlurSpacing);
     BlurIterations = ReadInt("blur_iterations", BlurIterations);
     BlurSaturation = ReadFloat("blur_saturation", BlurSaturation);
-
-    BackTint = ReadHexColor("back_tint", BackTint);
 }
 
 void Update()

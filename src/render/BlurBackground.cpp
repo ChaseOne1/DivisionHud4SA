@@ -146,6 +146,11 @@ void BlurBackground::BlurPass(IDirect3DDevice9* device, Target& destination, IDi
     device->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
     device->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
     device->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+    // The scene's post-effects can leave the stencil test / colour-write mask enabled;
+    // force them off so the blur passes are never masked out.
+    device->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+    device->SetRenderState(D3DRS_COLORWRITEENABLE,
+        D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
 
     device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);

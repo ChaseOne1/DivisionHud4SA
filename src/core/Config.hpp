@@ -179,8 +179,6 @@ inline float BlurSpacing = 2.0f;
 inline int BlurIterations = 2;
 inline float BlurSaturation = 1.0f;
 
-inline D3DCOLOR BackTint = D3DCOLOR_ARGB(255, 255, 255, 255);
-
 void Load();
 
 void Update();
